@@ -1,9 +1,10 @@
 # Gitnestr Electron SDK
 
-A powerful SDK for handling Git repositories in Electron applications, enabling seamless transfer of Git repositories from the filesystem to the browser's memory using LightningFS and isomorphic-git.
+A powerful SDK for Electron applications that provides both Git repository management and gitnestr CLI integration, enabling seamless transfer of Git repositories and interaction with the HORNET Storage network.
 
 ## Features
 
+### Git Bridge
 - 🔄 Efficient transfer of Git repositories from disk to browser memory
 - 📦 Chunked file transfer to handle large repositories
 - 🌳 Full Git repository structure preservation
@@ -11,22 +12,40 @@ A powerful SDK for handling Git repositories in Electron applications, enabling 
 - ⚡ Built on LightningFS for high-performance in-memory filesystem
 - 🛡️ Error handling and transfer verification
 
+### Gitnestr Bridge
+- 🚀 Direct integration with the gitnestr CLI
+- 🔐 Key management for secure repository access
+- 🔄 Repository operations (init, clone, push, pull, fetch)
+- 📦 Archive retrieval for repository DAGs
+- 🛡️ Comprehensive error handling and event system
+
 ## Installation
 
 ```bash
+# For Git repository management
 npm install @gitnestr/electron-git-bridge @gitnestr/browser-git-bridge
+
+# For gitnestr CLI integration
+npm install @gitnestr/electron-gitnestr-bridge @gitnestr/browser-gitnestr-bridge
 ```
 
 ## Architecture
 
-The SDK consists of two main packages:
+The SDK consists of four main packages:
 
-1. `@gitnestr/electron-git-bridge`: Runs in the main process, handles filesystem access
-2. `@gitnestr/browser-git-bridge`: Runs in the renderer process, manages in-memory filesystem
+### Git Bridge Packages
+1. `@gitnestr/electron-git-bridge`: Runs in the main process, handles filesystem access for Git repositories
+2. `@gitnestr/browser-git-bridge`: Runs in the renderer process, manages in-memory filesystem for Git repositories
+
+### Gitnestr Bridge Packages
+3. `@gitnestr/electron-gitnestr-bridge`: Runs in the main process, interfaces with the gitnestr CLI
+4. `@gitnestr/browser-gitnestr-bridge`: Runs in the renderer process, communicates with the main process via IPC
 
 ## Usage
 
-### Main Process (Electron)
+### Git Bridge Usage
+
+#### Main Process (Electron)
 
 ```typescript
 import { GitBridge } from '@gitnestr/electron-git-bridge';
@@ -54,7 +73,7 @@ for await (const chunk of bridge.streamRepository()) {
 }
 ```
 
-### Renderer Process (Browser)
+#### Renderer Process (Browser)
 
 ```typescript
 import { BrowserGitBridge } from '@gitnestr/browser-git-bridge';
@@ -97,9 +116,97 @@ ipcRenderer.on('repo-chunk', async (_, chunk) => {
 });
 ```
 
+### Gitnestr Bridge Usage
+
+#### Main Process (Electron)
+
+```typescript
+import { GitnestrBridge } from '@gitnestr/electron-gitnestr-bridge';
+import { app, BrowserWindow, ipcMain } from 'electron';
+
+// Create a new GitnestrBridge instance
+const gitnestr = new GitnestrBridge({
+  gitnestrPath: '/path/to/gitnestr', // Optional: defaults to 'gitnestr' in PATH
+  timeout: 30000 // Optional: timeout in milliseconds
+});
+
+// Set up IPC handler for gitnestr bridge
+ipcMain.handle('gitnestr-bridge', async (event, { request }) => {
+  try {
+    const { id, method, params } = request;
+    
+    // Call the appropriate method on the GitnestrBridge instance
+    const result = await gitnestr[method](...params);
+    
+    // Return the result
+    return { id, result };
+  } catch (error) {
+    // Handle errors
+    return {
+      id: request.id,
+      error: {
+        code: error.code || 'INTERNAL_ERROR',
+        message: error.message || 'Unknown error',
+        details: error.details
+      }
+    };
+  }
+});
+
+// Forward events from GitnestrBridge to renderer
+gitnestr.addListener('event', (event) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('gitnestr-bridge-event', { type: 'event', event });
+  }
+});
+```
+
+#### Renderer Process (Browser)
+
+```typescript
+import { BrowserGitnestrBridge } from '@gitnestr/browser-gitnestr-bridge';
+
+// Create a new BrowserGitnestrBridge instance
+const gitnestr = new BrowserGitnestrBridge({
+  timeout: 30000 // Optional: timeout in milliseconds
+});
+
+// Initialize a new repository
+await gitnestr.init('/path/to/repo');
+
+// Clone a repository
+await gitnestr.clone('gitnestr://example.com/repo', '/path/to/destination', 'keyAlias');
+
+// Pull changes
+await gitnestr.pull('/path/to/repo', 'branch');
+
+// Push changes
+await gitnestr.push('/path/to/repo', 'privateKey');
+
+// Generate keys
+const { privateKey, publicKey } = await gitnestr.generateKeys();
+
+// Store a key
+await gitnestr.storeKey('alias', privateKey, 'passphrase');
+
+// Unlock a key
+const key = await gitnestr.unlockKey('alias', 'passphrase');
+
+// Listen for events
+gitnestr.addListener('event', (event) => {
+  if (event.type === 'progress') {
+    console.log(`Progress: ${event.message}`);
+  } else if (event.type === 'error') {
+    console.error(`Error: ${event.message}`);
+  }
+});
+```
+
 ## Configuration Options
 
-### ElectronGitBridge Options
+### Git Bridge Options
+
+#### ElectronGitBridge Options
 
 ```typescript
 interface GitBridgeOptions {
@@ -110,7 +217,7 @@ interface GitBridgeOptions {
 }
 ```
 
-### BrowserGitBridge Options
+#### BrowserGitBridge Options
 
 ```typescript
 interface BrowserGitBridgeOptions {
@@ -122,9 +229,31 @@ interface BrowserGitBridgeOptions {
 }
 ```
 
+### Gitnestr Bridge Options
+
+#### ElectronGitnestrBridge Options
+
+```typescript
+interface GitnestrBridgeOptions {
+  gitnestrPath?: string;    // Path to gitnestr executable (default: 'gitnestr' in PATH)
+  timeout?: number;         // Command timeout in milliseconds (default: 60000)
+  env?: Record<string, string>; // Custom environment variables
+  relays?: string[];        // List of relay URLs
+}
+```
+
+#### BrowserGitnestrBridge Options
+
+```typescript
+interface BrowserGitnestrBridgeOptions {
+  timeout?: number;         // Request timeout in milliseconds (default: 60000)
+  relays?: string[];        // List of relay URLs
+}
+```
+
 ## Error Handling
 
-The SDK provides detailed error information through the `GitBridgeError` class:
+### Git Bridge Errors
 
 ```typescript
 try {
@@ -138,6 +267,26 @@ try {
 }
 ```
 
+### Gitnestr Bridge Errors
+
+```typescript
+try {
+  await gitnestr.pull('/path/to/repo');
+} catch (error) {
+  if (error instanceof GitnestrError) {
+    console.error('Gitnestr operation failed:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Additional info:', error.details);
+    
+    if (error.code === GitnestrErrorCode.TIMEOUT) {
+      // Handle timeout error
+    } else if (error.code === GitnestrErrorCode.COMMAND_FAILED) {
+      // Handle command failure
+    }
+  }
+}
+```
+
 ## Example Application
 
 Check out the `example` directory for a complete working example of:
@@ -145,6 +294,7 @@ Check out the `example` directory for a complete working example of:
 - Progress tracking
 - Error handling
 - Repository information display
+- Gitnestr CLI integration
 
 To run the example:
 
@@ -156,14 +306,16 @@ npm start
 
 ## API Reference
 
-### ElectronGitBridge
+### Git Bridge API
+
+#### ElectronGitBridge
 
 - `constructor(repoPath: string, options?: GitBridgeOptions)`
 - `async getMetadata(): Promise<GitRepository>`
 - `async *streamRepository(): AsyncGenerator<FileChunk | { manifest: TransferManifest }>`
 - `async validateRepo(): Promise<ValidationResult>`
 
-### BrowserGitBridge
+#### BrowserGitBridge
 
 - `constructor(options?: BrowserGitBridgeOptions)`
 - `async init(): Promise<void>`
@@ -172,6 +324,41 @@ npm start
 - `isTransferComplete(): boolean`
 - `async verifyTransfer(): Promise<{ success: boolean; errors: string[] }>`
 - `async getRepository(path: string): Promise<GitRepository>`
+
+### Gitnestr Bridge API
+
+#### ElectronGitnestrBridge
+
+- `constructor(options?: GitnestrBridgeOptions)`
+- `async executeCommand(command: string, args?: string[], options?: GitnestrCommandOptions): Promise<GitnestrCommandResult>`
+- `async init(repoPath: string): Promise<GitnestrRepository>`
+- `async clone(url: string, destPath: string, keyAlias?: string): Promise<GitnestrRepository>`
+- `async pull(repoPath: string, branch?: string): Promise<GitnestrCommandResult>`
+- `async push(repoPath: string, privateKey?: string): Promise<GitnestrCommandResult>`
+- `async fetch(repoPath: string, branch?: string, privateKey?: string): Promise<GitnestrCommandResult>`
+- `async archive(url: string, branch: string, privateKey: string, keyAlias?: string): Promise<string[]>`
+- `async generateKeys(): Promise<{ privateKey: string; publicKey: string }>`
+- `async storeKey(alias: string, privateKey: string, passphrase: string): Promise<void>`
+- `async unlockKey(alias: string, passphrase: string): Promise<string>`
+- `addListener(event: 'event', listener: GitnestrEventListener): this`
+- `removeListener(event: 'event', listener: GitnestrEventListener): this`
+- `cancelAll(): void`
+
+#### BrowserGitnestrBridge
+
+- `constructor(options?: BrowserGitnestrBridgeOptions)`
+- `async init(repoPath: string): Promise<GitnestrRepository>`
+- `async clone(url: string, destPath: string, keyAlias?: string): Promise<GitnestrRepository>`
+- `async pull(repoPath: string, branch?: string): Promise<GitnestrCommandResult>`
+- `async push(repoPath: string, privateKey?: string): Promise<GitnestrCommandResult>`
+- `async fetch(repoPath: string, branch?: string, privateKey?: string): Promise<GitnestrCommandResult>`
+- `async archive(url: string, branch: string, privateKey: string, keyAlias?: string): Promise<string[]>`
+- `async generateKeys(): Promise<{ privateKey: string; publicKey: string }>`
+- `async storeKey(alias: string, privateKey: string, passphrase: string): Promise<void>`
+- `async unlockKey(alias: string, passphrase: string): Promise<string>`
+- `addListener(event: 'event', listener: GitnestrEventListener): this`
+- `removeListener(event: 'event', listener: GitnestrEventListener): this`
+- `cancelAll(): void`
 
 ## Contributing
 
