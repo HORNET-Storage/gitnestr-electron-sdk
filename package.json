@@ -1,0 +1,24 @@
+{
+  "name": "gitnestr",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:electron-git": "tsc -p packages/electron-git-bridge/tsconfig.json",
+    "build:browser-git": "tsc -p packages/browser-git-bridge/tsconfig.json",
+    "build:electron-gitnestr": "tsc -p packages/electron-gitnestr-bridge/tsconfig.json",
+    "build:browser-gitnestr": "tsc -p packages/browser-gitnestr-bridge/tsconfig.json",
+    "build:example": "tsc -p example/tsconfig.json",
+    "build": "npm run build:electron-git && npm run build:browser-git && npm run build:electron-gitnestr && npm run build:browser-gitnestr && npm run build:example",
+    "test": "turbo run test",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^1.10.0",
+    "typescript": "^5.0.0",
+    "prettier": "^2.8.0",
+    "eslint": "^8.40.0",
+    "@types/node": "^18.0.0"
+  }
+}

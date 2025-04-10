@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Gitnestr Example</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+    
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      display: inline-block;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    #status {
+      margin: 20px 0;
+      padding: 10px;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+    }
+    
+    #repoInfo {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      overflow-x: auto;
+    }
+    
+    .repo-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    .repo-list li {
+      padding: 10px;
+      margin-bottom: 5px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .repo-list li:hover {
+      background-color: #e9ecef;
+    }
+    
+    .repo-list li.selected {
+      background-color: #d1e7dd;
+    }
+    
+    .directory-tree {
+      font-family: monospace;
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      max-height: 400px;
+      overflow: auto;
+    }
+    
+    .directory-tree ul {
+      list-style-type: none;
+      padding-left: 20px;
+      margin: 0;
+    }
+    
+    .directory-tree li {
+      margin: 5px 0;
+    }
+    
+    .folder-name {
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    .folder-name:before {
+      content: "📁 ";
+    }
+    
+    .folder.open .folder-name:before {
+      content: "📂 ";
+    }
+    
+    .file-name {
+      cursor: pointer;
+    }
+    
+    .file-name:before {
+      content: "📄 ";
+    }
+    
+    .selected-file {
+      background-color: #d1e7dd;
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+    
+    .empty-message {
+      color: #6c757d;
+      font-style: italic;
+    }
+    
+    /* Repository browser styles */
+    .repository-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    .repository-item {
+      padding: 15px;
+      margin-bottom: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      border-left: 4px solid #4CAF50;
+    }
+    
+    .repository-item h3 {
+      margin-top: 0;
+      margin-bottom: 5px;
+    }
+    
+    .repository-item p {
+      margin: 5px 0;
+      color: #6c757d;
+    }
+    
+    .clone-repo-button {
+      margin-top: 10px;
+    }
+    
+    .remove-relay {
+      background-color: #dc3545;
+      color: white;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 10px;
+    }
+    
+    .remove-relay:hover {
+      background-color: #c82333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Gitnestr Example</h1>
+    
+    <!-- Login Section -->
+    <div id="loginSection" class="section">
+      <h2>Login with Private Key</h2>
+      <div class="form-group">
+        <label for="privateKey">Private Key (nsec):</label>
+        <input type="password" id="privateKey" placeholder="Enter your private key (nsec)">
+      </div>
+      <div class="form-group">
+        <label for="passphrase">Passphrase (optional):</label>
+        <input type="password" id="passphrase" placeholder="Enter a passphrase to secure your key">
+      </div>
+      <button id="loginButton">Login</button>
+      <button id="generateKeyButton">Generate New Key</button>
+      <div id="userInfo" style="margin-top: 10px; display: none;">
+        <strong>Logged in as: </strong><span id="publicKey"></span>
+      </div>
+    </div>
+    
+    <!-- Repository Management Section -->
+    <div id="repoManagementSection" class="section" style="display: none;">
+      <h2>Repository Management</h2>
+      <div class="form-group">
+        <label for="repoUrl">Repository URL:</label>
+        <input type="text" id="repoUrl" placeholder="Enter repository URL (gitnestr://...)">
+      </div>
+      <button id="cloneButton">Clone Repository</button>
+      
+      <h3>Your Repositories</h3>
+      <ul id="repoList" class="repo-list">
+        <!-- Repositories will be listed here -->
+      </ul>
+      
+      <div id="repoActions" style="margin-top: 15px; display: none;">
+        <button id="pullButton">Pull Updates</button>
+        <button id="selectButton">Select Repository</button>
+      </div>
+    </div>
+    
+    <!-- Nostr Repository Browsing Section -->
+    <div id="nostrSection" class="section" style="display: none;">
+      <h2>Nostr Repository Browser</h2>
+      <div class="form-group">
+        <label for="relayInput">Nostr Relay URL:</label>
+        <input type="text" id="relayInput" placeholder="Enter relay URL (wss://...)">
+      </div>
+      <button id="addRelayButton">Add Relay</button>
+      
+      <h3>Configured Relays</h3>
+      <ul id="relayList" class="repo-list">
+        <!-- Relays will be listed here -->
+      </ul>
+      
+      <button id="browseButton" style="margin-top: 15px;">Browse Repositories</button>
+      
+      <div id="repositoryBrowser" style="margin-top: 15px;">
+        <!-- Repository browser content will be displayed here -->
+      </div>
+    </div>
+    
+    <div id="status">Ready to login...</div>
+    
+    <div class="repo-content" style="display: flex; margin-top: 20px;">
+      <div style="flex: 1; margin-right: 10px;">
+        <h2>Directory Tree</h2>
+        <div id="directoryTree" class="directory-tree">
+          <div class="empty-message">No repository selected</div>
+        </div>
+      </div>
+      <div style="flex: 2;">
+        <h2>Repository Information</h2>
+        <pre id="repoInfo">No repository selected</pre>
+      </div>
+    </div>
+  </div>
+  <script>
+    console.log('HTML loaded');
+  </script>
+  <script src="./dist/renderer.js"></script>
+</body>
+</html>
