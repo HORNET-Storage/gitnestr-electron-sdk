@@ -38,8 +38,8 @@ export class BrowserGitnestrBridge extends EventEmitter {
   /**
    * Clone repository by info object
    */
-  async cloneByInfo(info: RepositoryInfo, destPath: string, keyAlias?: string): Promise<GitnestrRepository> {
-    return this.clone(info.cloneUrl, destPath, keyAlias);
+  async cloneByInfo(info: RepositoryInfo, destPath?: string, branch?: string, keyAlias?: string): Promise<GitnestrRepository> {
+    return this.clone(info.cloneUrl, destPath, branch, keyAlias);
   }
 
   /**
@@ -129,8 +129,8 @@ export class BrowserGitnestrBridge extends EventEmitter {
   /**
    * Clone a gitnestr repository
    */
-  async clone(url: string, destPath: string, keyAlias?: string): Promise<GitnestrRepository> {
-    return this.sendIPCRequest('clone', [url, destPath, keyAlias]);
+  async clone(url: string, destPath?: string, branch?: string, keyAlias?: string): Promise<GitnestrRepository> {
+    return this.sendIPCRequest('clone', [url, destPath, branch, keyAlias]);
   }
 
   /**
@@ -143,22 +143,22 @@ export class BrowserGitnestrBridge extends EventEmitter {
   /**
    * Push changes to a gitnestr repository
    */
-  async push(repoPath: string, privateKey?: string): Promise<GitnestrCommandResult> {
-    return this.sendIPCRequest('push', [repoPath, privateKey]);
+  async push(repoPath: string, privateKey?: string, keyAlias?: string): Promise<GitnestrCommandResult> {
+    return this.sendIPCRequest('push', [repoPath, privateKey, keyAlias]);
   }
 
   /**
    * Fetch changes from a gitnestr repository without merging
    */
-  async fetch(repoPath: string, branch?: string, privateKey?: string): Promise<GitnestrCommandResult> {
-    return this.sendIPCRequest('fetch', [repoPath, branch, privateKey]);
+  async fetch(repoPath: string, branch?: string): Promise<GitnestrCommandResult> {
+    return this.sendIPCRequest('fetch', [repoPath, branch]);
   }
 
   /**
    * Retrieve archive DAG for a repository
    */
-  async archive(url: string, branch: string, privateKey: string, keyAlias?: string): Promise<string[]> {
-    return this.sendIPCRequest('archive', [url, branch, privateKey, keyAlias]);
+  async archive(url: string, branch?: string): Promise<string[]> {
+    return this.sendIPCRequest('archive', [url, branch]);
   }
 
   /**

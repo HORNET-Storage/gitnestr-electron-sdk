@@ -15,8 +15,8 @@ import {
 import { error } from 'console';
 
 const DEFAULT_OPTIONS: Required<GitnestrBridgeOptions> = {
-  gitnestrPath: 'F:\\organizations\\hornet-storage\\golang\\gitnestr_combined\\gitnestr\\gitnestr.exe', // Assume gitnestr is in PATH by default
-  timeout: 60000, // 1 minute default timeout
+  gitnestrPath: 'gitnestr.exe',
+  timeout: 60000,
   env: {},
   relays: []
 };
@@ -166,17 +166,25 @@ export class GitnestrBridge extends EventEmitter {
   /**
    * Clone a gitnestr repository
    */
-  async clone(url: string, destPath: string, keyAlias?: string): Promise<GitnestrRepository> {
-    const args = [url];  // Only URL as positional argument
+  async clone(url: string, destPath?: string, branch?: string, keyAlias?: string): Promise<GitnestrRepository> {
+    const args = [url];
     
-    // Extract the parent directory from the destPath
-    const parentDir = path.dirname(destPath);
+    // Add branch if provided
+    if (branch) {
+      args.push(branch);
+    }
     
-    // Ensure the parent directory exists
-    fs.mkdirSync(parentDir, { recursive: true });
-    
-    // Use -C flag for the parent directory
-    args.push('-C', parentDir);
+    // If destPath is provided, use -C flag
+    if (destPath) {
+      // Extract the parent directory from the destPath
+      const parentDir = path.dirname(destPath);
+      
+      // Ensure the parent directory exists
+      fs.mkdirSync(parentDir, { recursive: true });
+      
+      // Use -C flag for the parent directory
+      args.push('-C', parentDir);
+    }
     
     if (keyAlias) {
       args.push('-a', keyAlias);
@@ -184,7 +192,7 @@ export class GitnestrBridge extends EventEmitter {
     
     await this.executeCommand('clone', args);
     
-    return { path: destPath };
+    return { path: destPath || url.split('/').pop() || '' };
   }
 
   /**
@@ -198,36 +206,36 @@ export class GitnestrBridge extends EventEmitter {
   /**
    * Push changes to a gitnestr repository
    */
-  async push(repoPath: string, privateKey?: string): Promise<GitnestrCommandResult> {
-    const args = privateKey ? ['-p', privateKey] : [];
+  async push(repoPath: string, privateKey?: string, keyAlias?: string): Promise<GitnestrCommandResult> {
+    const args: string[] = [];
+    
+    if (privateKey) {
+      args.push('-p', privateKey);
+    }
+    
+    if (keyAlias) {
+      args.push('-a', keyAlias);
+    }
+    
     return this.executeCommand('push', args, { cwd: repoPath });
   }
 
   /**
    * Fetch changes from a gitnestr repository without merging
    */
-  async fetch(repoPath: string, branch?: string, privateKey?: string): Promise<GitnestrCommandResult> {
-    const args: string[] = [];
-    
-    if (branch) {
-      args.push(branch);
-    }
-    
-    if (privateKey) {
-      args.push('-p', privateKey);
-    }
-    
+  async fetch(repoPath: string, branch?: string): Promise<GitnestrCommandResult> {
+    const args: string[] = branch ? [branch] : [];
     return this.executeCommand('fetch', args, { cwd: repoPath });
   }
 
   /**
    * Retrieve archive DAG for a repository
    */
-  async archive(url: string, branch: string, privateKey: string, keyAlias?: string): Promise<string[]> {
-    const args = [url, branch, privateKey];
+  async archive(url: string, branch?: string): Promise<string[]> {
+    const args = [url];
     
-    if (keyAlias) {
-      args.push('-a', keyAlias);
+    if (branch) {
+      args.push(branch);
     }
     
     // Always request JSON output for easier parsing
