@@ -1,9 +1,32 @@
 {
   "name": "gitnestr",
-  "private": true,
+  "version": "0.1.0",
+  "private": false,
   "workspaces": [
     "packages/*"
   ],
+  "description": "A powerful SDK for Electron applications that provides both Git repository management and gitnestr CLI integration",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HORNET-Storage/gitnestr-electron-sdk.git"
+  },
+  "keywords": [
+    "git",
+    "nostr",
+    "nestr",
+    "gitnestr",
+    "repository",
+    "hornets",
+    "electron",
+    "browser",
+    "sdk"
+  ],
+  "author": "HORNET Storage",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/HORNET-Storage/gitnestr-electron-sdk/issues"
+  },
+  "homepage": "https://github.com/HORNET-Storage/gitnestr-electron-sdk#readme",
   "scripts": {
     "build:electron-git": "tsc -p packages/electron-git-bridge/tsconfig.json",
     "build:browser-git": "tsc -p packages/browser-git-bridge/tsconfig.json",
@@ -15,10 +38,10 @@
     "lint": "turbo run lint"
   },
   "devDependencies": {
-    "turbo": "^1.10.0",
-    "typescript": "^5.0.0",
-    "prettier": "^2.8.0",
+    "@types/node": "^18.19.86",
     "eslint": "^8.40.0",
-    "@types/node": "^18.0.0"
+    "prettier": "^2.8.0",
+    "turbo": "^1.10.0",
+    "typescript": "^5.0.0"
   }
 }

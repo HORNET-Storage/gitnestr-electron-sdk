@@ -1,12 +1,33 @@
 {
   "name": "@gitnestr/browser-gitnestr-bridge",
   "version": "0.1.0",
-  "description": "Browser bridge for gitnestr",
+  "description": "Browser bridge for gitnestr CLI integration in the Gitnestr SDK",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HORNET-Storage/gitnestr-electron-sdk.git"
+  },
+  "keywords": [
+    "git",
+    "nostr",
+    "nestr",
+    "bridge",
+    "gitnestr",
+    "repository",
+    "hornets",
+    "browser",
+    "cli"
+  ],
+  "author": "HORNET Storage",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/HORNET-Storage/gitnestr-electron-sdk/issues"
+  },
+  "homepage": "https://github.com/HORNET-Storage/gitnestr-electron-sdk#readme",
   "dependencies": {
     "nostr-tools": "^2.12.0"
   },
