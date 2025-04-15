@@ -1,9 +1,13 @@
 {
   "name": "@gitnestr/electron-gitnestr-bridge",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Electron bridge for gitnestr CLI integration in the Gitnestr SDK",
   "types": "dist/index.d.ts",
   "type": "module",
+  "files": [
+    "dist",
+    "commonjs-wrapper.cjs"
+  ],
   "main": "./commonjs-wrapper.cjs",
   "module": "./dist/index.js",
   "scripts": {
