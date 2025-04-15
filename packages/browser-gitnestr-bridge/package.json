@@ -1,6 +1,6 @@
 {
   "name": "@gitnestr/browser-gitnestr-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Browser bridge for gitnestr CLI integration in the Gitnestr SDK",
   "main": "dist/index.js",
   "scripts": {
