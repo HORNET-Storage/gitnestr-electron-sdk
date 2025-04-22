@@ -19,60 +19,70 @@ npm install @gitnestr/electron-gitnestr-bridge
 ### Basic Usage
 
 ```typescript
-import { GitnestrBridge } from '@gitnestr/electron-gitnestr-bridge';
+import { GitnestrBridge } from "@gitnestr/electron-gitnestr-bridge";
 
 // Create a new GitnestrBridge instance
 const gitnestr = new GitnestrBridge({
-  gitnestrPath: '/path/to/gitnestr', // Optional: defaults to 'gitnestr' in PATH
+  gitnestrPath: "/path/to/gitnestr", // Optional: defaults to 'gitnestr' in PATH
   timeout: 30000, // Optional: timeout in milliseconds, defaults to 60000
-  env: { /* Custom environment variables */ } // Optional
+  env: {
+    /* Custom environment variables */
+  }, // Optional
 });
 
 // Initialize a new repository
-await gitnestr.init('/path/to/repo');
+await gitnestr.init("/path/to/repo");
 
 // Clone a repository
-await gitnestr.clone('gitnestr://example.com/repo', '/path/to/destination', 'keyAlias');
+await gitnestr.clone(
+  "gitnestr://example.com/repo",
+  "/path/to/destination",
+  "keyAlias"
+);
 
 // Pull changes
-await gitnestr.pull('/path/to/repo', 'branch');
+await gitnestr.pull("/path/to/repo", "branch");
 
 // Push changes
-await gitnestr.push('/path/to/repo', 'privateKey');
+await gitnestr.push("/path/to/repo", "privateKey");
 
 // Fetch changes without merging
-await gitnestr.fetch('/path/to/repo', 'branch', 'privateKey');
+await gitnestr.fetch("/path/to/repo", "branch", "privateKey");
 
 // Retrieve archive DAG for a repository
-const paths = await gitnestr.archive('gitnestr://example.com/repo', 'branch', 'privateKey', 'keyAlias');
+const paths = await gitnestr.archive(
+  "gitnestr://example.com/repo",
+  "branch",
+  "privateKey",
+  "keyAlias"
+);
 
 // Generate keys
 const { privateKey, publicKey } = await gitnestr.generateKeys();
 
 // Store a key
-await gitnestr.storeKey('alias', privateKey, 'passphrase');
+await gitnestr.storeKey("alias", privateKey, "passphrase");
 
 // Unlock a key
-const key = await gitnestr.unlockKey('alias', 'passphrase');
-
+const key = await gitnestr.unlockKey("alias", "passphrase");
 ```
 
 ### Event Handling
 
 ```typescript
 // Listen for events
-gitnestr.addListener('event', (event) => {
-  if (event.type === 'progress') {
+gitnestr.addListener("event", (event) => {
+  if (event.type === "progress") {
     console.log(`Progress: ${event.message}`);
-  } else if (event.type === 'error') {
+  } else if (event.type === "error") {
     console.error(`Error: ${event.message}`);
-  } else if (event.type === 'success') {
+  } else if (event.type === "success") {
     console.log(`Success: ${event.message}`);
   }
 });
 
 // Remove event listener
-gitnestr.removeListener('event', listener);
+gitnestr.removeListener("event", listener);
 
 // Cancel all active processes
 gitnestr.cancelAll();
@@ -81,16 +91,19 @@ gitnestr.cancelAll();
 ### Error Handling
 
 ```typescript
-import { GitnestrError, GitnestrErrorCode } from '@gitnestr/electron-gitnestr-bridge';
+import {
+  GitnestrError,
+  GitnestrErrorCode,
+} from "@gitnestr/electron-gitnestr-bridge";
 
 try {
-  await gitnestr.pull('/path/to/repo');
+  await gitnestr.pull("/path/to/repo");
 } catch (error) {
   if (error instanceof GitnestrError) {
     console.error(`Error code: ${error.code}`);
     console.error(`Error message: ${error.message}`);
     console.error(`Error details: ${JSON.stringify(error.details)}`);
-    
+
     if (error.code === GitnestrErrorCode.TIMEOUT) {
       // Handle timeout error
     } else if (error.code === GitnestrErrorCode.COMMAND_FAILED) {
@@ -130,7 +143,3 @@ new GitnestrBridge(options?: GitnestrBridgeOptions)
 - `addListener(event: 'event', listener: GitnestrEventListener): this` - Add an event listener
 - `removeListener(event: 'event', listener: GitnestrEventListener): this` - Remove an event listener
 - `cancelAll(): void` - Cancel all active processes
-
-## License
-
-MIT

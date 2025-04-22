@@ -1,8 +1,13 @@
 {
   "name": "@gitnestr/electron-gitnestr-bridge",
-  "version": "0.1.0",
+  "version": "0.1.2",
+  "description": "Electron bridge for gitnestr CLI integration in the Gitnestr SDK",
   "types": "dist/index.d.ts",
   "type": "module",
+  "files": [
+    "dist",
+    "commonjs-wrapper.cjs"
+  ],
   "main": "./commonjs-wrapper.cjs",
   "module": "./dist/index.js",
   "scripts": {
@@ -10,6 +15,27 @@
     "test": "jest",
     "lint": "eslint src --ext .ts"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HORNET-Storage/gitnestr-electron-sdk.git"
+  },
+  "keywords": [
+    "git",
+    "nostr",
+    "nestr",
+    "bridge",
+    "gitnestr",
+    "repository",
+    "hornets",
+    "electron",
+    "cli"
+  ],
+  "author": "HORNET Storage",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/HORNET-Storage/gitnestr-electron-sdk/issues"
+  },
+  "homepage": "https://github.com/HORNET-Storage/gitnestr-electron-sdk#readme",
   "dependencies": {
     "execa": "^9.5.2"
   },

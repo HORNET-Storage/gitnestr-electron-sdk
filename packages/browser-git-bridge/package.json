@@ -1,13 +1,36 @@
 {
   "name": "@gitnestr/browser-git-bridge",
-  "version": "0.1.0",
+  "version": "0.1.2",
+  "description": "Browser bridge for Git repository management in the Gitnestr SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "jest",
     "lint": "eslint src --ext .ts"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HORNET-Storage/gitnestr-electron-sdk.git"
+  },
+  "keywords": [
+    "git",
+    "nostr",
+    "nestr",
+    "bridge",
+    "gitnestr",
+    "repository",
+    "hornets"
+  ],
+  "author": "HORNET Storage",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/HORNET-Storage/gitnestr-electron-sdk/issues"
+  },
+  "homepage": "https://github.com/HORNET-Storage/gitnestr-electron-sdk#readme",
   "dependencies": {
     "isomorphic-git": "^1.24.0",
     "@isomorphic-git/lightning-fs": "^4.6.0"
