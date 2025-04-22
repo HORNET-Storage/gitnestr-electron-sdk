@@ -182,6 +182,31 @@ export class BrowserGitnestrBridge extends EventEmitter {
     return this.sendIPCRequest('unlockKey', [alias, passphrase]);
   }
 
+  /**
+   * Commit changes to a gitnestr repository
+   * @param repoPath The path to the repository
+   * @param message The commit message
+   * @returns A promise that resolves with the command result
+   */
+  async commit(repoPath: string, message: string): Promise<GitnestrCommandResult> {
+    return this.sendIPCRequest('commit', [repoPath, message]);
+  }
+
+  /**
+   * Write a file to a repository
+   * @param repoPath The path to the repository (pubkey/reponame)
+   * @param filePath The path to the file, relative to the repository root
+   * @param content The content to write to the file (string or Buffer)
+   * @returns A promise that resolves with success status and message
+   */
+  async writeFile(repoPath: string, filePath: string, content: string | Buffer): Promise<{ success: boolean; message: string }> {
+    // Convert Buffer to base64 string if needed for IPC transmission
+    const contentToSend = Buffer.isBuffer(content) ? content.toString('base64') : content;
+    const isBase64 = Buffer.isBuffer(content);
+    
+    return this.sendIPCRequest('writeFile', [repoPath, filePath, contentToSend, isBase64]);
+  }
+
 
   /**
    * Add an event listener

@@ -1,6 +1,7 @@
 const { execa } = await import('execa');
 import * as path from 'path';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import { EventEmitter } from 'events';
 import {
   GitnestrRepository,
@@ -180,7 +181,7 @@ export class GitnestrBridge extends EventEmitter {
       const parentDir = path.dirname(destPath);
       
       // Ensure the parent directory exists
-      fs.mkdirSync(parentDir, { recursive: true });
+      fsSync.mkdirSync(parentDir, { recursive: true });
       
       // Use -C flag for the parent directory
       args.push('-C', parentDir);
@@ -294,6 +295,15 @@ export class GitnestrBridge extends EventEmitter {
     return result.stdout.trim();
   }
 
+  /**
+   * Commit changes to a gitnestr repository
+   * @param repoPath The path to the repository
+   * @param message The commit message
+   * @returns A promise that resolves with the command result
+   */
+  async commit(repoPath: string, message: string): Promise<GitnestrCommandResult> {
+    return this.executeCommand('commit', [message], { cwd: repoPath });
+  }
 
   /**
    * Add an event listener
@@ -316,6 +326,59 @@ export class GitnestrBridge extends EventEmitter {
     for (const [id, process] of this.activeProcesses.entries()) {
       process.kill();
       this.activeProcesses.delete(id);
+    }
+  }
+
+  /**
+   * Write a file to a repository
+   * @param repoPath The path to the repository (pubkey/reponame)
+   * @param filePath The path to the file, relative to the repository root
+   * @param content The content to write to the file (string or Buffer)
+   * @returns A promise that resolves with success status and message
+   */
+  async writeFile(repoPath: string, filePath: string, content: Buffer | string): Promise<{ success: boolean; message: string }> {
+    try {
+      // Normalize and resolve the full path (ensuring it's within the repo)
+      const normalizedFilePath = path.normalize(filePath);
+      
+      // Check for directory traversal attempts
+      if (normalizedFilePath.startsWith('..') || path.isAbsolute(normalizedFilePath)) {
+        throw new Error('Invalid file path: Path must be relative to the repository root');
+      }
+      
+      const fullPath = path.join(repoPath, normalizedFilePath);
+      
+      // Ensure the directory exists
+      const directory = path.dirname(fullPath);
+      await fs.mkdir(directory, { recursive: true });
+      
+      // Write the file
+      await fs.writeFile(fullPath, content);
+      
+      // Emit success event
+      const successEvent: GitnestrEvent = {
+        type: 'success',
+        command: 'writeFile',
+        message: `File ${filePath} written successfully`
+      };
+      this.emit('event', successEvent);
+      
+      return { success: true, message: `File ${filePath} written successfully` };
+    } catch (error: any) {
+      // Emit error event
+      const errorEvent: GitnestrEvent = {
+        type: 'error',
+        command: 'writeFile',
+        message: error.message || 'Unknown error',
+        code: GitnestrErrorCode.INTERNAL_ERROR
+      };
+      this.emit('event', errorEvent);
+      
+      throw new GitnestrError(
+        `Failed to write file: ${filePath}`,
+        GitnestrErrorCode.INTERNAL_ERROR,
+        { repoPath, filePath, error: error.message }
+      );
     }
   }
 }

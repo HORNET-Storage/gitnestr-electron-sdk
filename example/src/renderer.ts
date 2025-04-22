@@ -48,6 +48,7 @@ let directoryTreeElement: HTMLDivElement;
 // Repository data
 let repoFiles: string[] = [];
 let selectedFile: string | null = null;
+let selectedRepoPath: string | null = null;
 
 // Helper Functions
 function updateRepoInfo(repo: GitRepository): void {
@@ -375,7 +376,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
-  // Select button
+// Select button
   selectButton.addEventListener('click', async () => {
     try {
       if (!selectedRepo) {
@@ -387,10 +388,99 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       await ipcRenderer.invoke('select-repository', selectedRepo);
       
+      // Store the selected repository path for file operations
+      if (currentUserPublicKey) {
+        // Get the repository path from the main process
+        const repoInfo = await ipcRenderer.invoke('get-repository-path', selectedRepo);
+        selectedRepoPath = repoInfo.path;
+      }
+      
     } catch (error) {
       showError(error as Error);
     }
   });
+  
+  // Example: Add a button to test the writeFile function
+  const testWriteFileButton = document.createElement('button');
+  testWriteFileButton.textContent = 'Test Write File';
+  testWriteFileButton.addEventListener('click', async () => {
+    try {
+      if (!selectedRepoPath) {
+        updateStatus('Please select a repository first');
+        return;
+      }
+      
+      // Example content to write
+      const content = 'This is a test file created by the writeFile function.';
+      const filePath = 'test-file.txt';
+      
+      updateStatus(`Writing file ${filePath} to repository...`);
+      
+      // Call the writeFile function
+      const result = await ipcRenderer.invoke('writeFile', selectedRepoPath, filePath, content, false);
+      
+      updateStatus(result.message);
+      
+      // Refresh repository list to show the new file
+      await refreshRepositoryList();
+      
+    } catch (error) {
+      showError(error as Error);
+    }
+  });
+  
+  // Example: Add a button to test the commit function
+  const testCommitButton = document.createElement('button');
+  testCommitButton.textContent = 'Test Commit';
+  testCommitButton.addEventListener('click', async () => {
+    try {
+      if (!selectedRepoPath) {
+        updateStatus('Please select a repository first');
+        return;
+      }
+      
+      const commitMessage = 'Test commit from gitnestr-electron-sdk';
+      
+      updateStatus(`Committing changes with message: "${commitMessage}"...`);
+      
+      // Call the commit function
+      const result = await ipcRenderer.invoke('commit', selectedRepoPath, commitMessage);
+      
+      updateStatus(`Changes committed successfully: ${result.stdout}`);
+      
+    } catch (error) {
+      showError(error as Error);
+    }
+  });
+  
+  // Example: Add a button to test the push function
+  const testPushButton = document.createElement('button');
+  testPushButton.textContent = 'Test Push';
+  testPushButton.addEventListener('click', async () => {
+    try {
+      if (!selectedRepoPath) {
+        updateStatus('Please select a repository first');
+        return;
+      }
+      
+      updateStatus(`Pushing changes to remote repository...`);
+      
+      // Call the push function
+      const result = await ipcRenderer.invoke('push-repository', selectedRepo);
+      
+      updateStatus(`Changes pushed successfully: ${result.stdout}`);
+      
+    } catch (error) {
+      showError(error as Error);
+    }
+  });
+  
+  // Add the buttons to the UI
+  if (repoActions) {
+    repoActions.appendChild(testWriteFileButton);
+    repoActions.appendChild(testCommitButton);
+    repoActions.appendChild(testPushButton);
+  }
   
   // Nostr relay management
   // Add relay button

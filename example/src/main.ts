@@ -399,6 +399,112 @@ ipcMain.handle('clone-repository-by-info', async (_, repoInfo) => {
   }
 });
 
+// Handle writing a file to a repository
+ipcMain.handle('writeFile', async (_, repoPath: string, filePath: string, content: string, isBase64: boolean) => {
+  if (!gitnestrBridge) {
+    throw new Error('GitnestrBridge not initialized');
+  }
+
+  try {
+    // Convert back to Buffer if it was sent as base64
+    const contentToWrite = isBase64 ? Buffer.from(content, 'base64') : content;
+    
+    // Write the file
+    const result = await gitnestrBridge.writeFile(repoPath, filePath, contentToWrite);
+    
+    if (mainWindow) {
+      mainWindow.webContents.send('repo-status', result.message);
+    }
+    
+    return result;
+  } catch (error) {
+    if (mainWindow) {
+      mainWindow.webContents.send('repo-error', error instanceof Error ? error.message : 'Unknown error');
+    }
+    throw error;
+  }
+});
+
+// Handle committing changes to a repository
+ipcMain.handle('commit', async (_, repoPath: string, message: string) => {
+  if (!gitnestrBridge) {
+    throw new Error('GitnestrBridge not initialized');
+  }
+
+  try {
+    // Commit changes
+    const result = await gitnestrBridge.commit(repoPath, message);
+    
+    if (mainWindow) {
+      mainWindow.webContents.send('repo-status', `Changes committed with message: ${message}`);
+    }
+    
+    return result;
+  } catch (error) {
+    if (mainWindow) {
+      mainWindow.webContents.send('repo-error', error instanceof Error ? error.message : 'Unknown error');
+    }
+    throw error;
+  }
+});
+
+// Handle pushing changes to a repository
+ipcMain.handle('push-repository', async (_, repoName: string) => {
+  if (!mainWindow || !gitnestrBridge || !currentUserPublicKey) {
+    throw new Error('Not logged in');
+  }
+
+  try {
+    // Get user's repositories directory
+    const userReposDir = getUserReposDir(currentUserPublicKey);
+
+    // Full path to the repository
+    const repoPath = path.join(userReposDir, repoName);
+
+    // Push changes
+    mainWindow.webContents.send('repo-status', `Pushing changes for ${repoName}...`);
+    const result = await gitnestrBridge.push(repoPath);
+    mainWindow.webContents.send('repo-status', `Repository pushed successfully: ${result.stdout}`);
+
+    return {
+      name: repoName,
+      path: repoPath,
+      result
+    };
+  } catch (error) {
+    mainWindow.webContents.send('repo-error', error instanceof Error ? error.message : 'Unknown error');
+    throw error;
+  }
+});
+
+// Handle getting repository path
+ipcMain.handle('get-repository-path', async (_, repoName: string) => {
+  if (!currentUserPublicKey) {
+    throw new Error('Not logged in');
+  }
+
+  try {
+    // Get user's repositories directory
+    const userReposDir = getUserReposDir(currentUserPublicKey);
+
+    // Full path to the repository
+    const repoPath = path.join(userReposDir, repoName);
+
+    // Check if repository exists
+    if (!fs.existsSync(repoPath)) {
+      throw new Error(`Repository ${repoName} not found`);
+    }
+
+    return {
+      name: repoName,
+      path: repoPath
+    };
+  } catch (error) {
+    console.error('Error getting repository path:', error);
+    throw error;
+  }
+});
+
 // Handle repository selection (original functionality)
 ipcMain.handle('select-repository', async (_, repoName: string) => {
   if (!mainWindow || !currentUserPublicKey) return;
