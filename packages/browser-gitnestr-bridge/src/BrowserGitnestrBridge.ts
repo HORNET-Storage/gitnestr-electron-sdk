@@ -193,6 +193,43 @@ export class BrowserGitnestrBridge extends EventEmitter {
   }
 
   /**
+   * Download a DAG from a Hornet Storage relay
+   * @param address The address of the relay
+   * @param port The port of the relay
+   * @param pubKey The public key of the relay
+   * @param rootHash The root hash of the DAG to download
+   * @param options Optional parameters for the download
+   * @returns A promise that resolves with the command result
+   */
+  async download(
+    address: string, 
+    port: string, 
+    pubKey: string, 
+    rootHash: string, 
+    options?: {
+      fromLeaf?: number,
+      toLeaf?: number,
+      outputDir?: string,
+      withContent?: boolean,
+      jsonOutput?: boolean,
+      jsonFile?: string
+    }
+  ): Promise<GitnestrCommandResult> {
+    return this.sendIPCRequest('download', [
+      address, 
+      port, 
+      pubKey, 
+      rootHash, 
+      options?.fromLeaf, 
+      options?.toLeaf, 
+      options?.outputDir, 
+      options?.withContent, 
+      options?.jsonOutput, 
+      options?.jsonFile
+    ]);
+  }
+
+  /**
    * Write a file to a repository
    * @param repoPath The path to the repository (pubkey/reponame)
    * @param filePath The path to the file, relative to the repository root

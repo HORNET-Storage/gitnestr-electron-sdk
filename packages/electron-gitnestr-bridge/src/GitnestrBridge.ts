@@ -330,6 +330,41 @@ export class GitnestrBridge extends EventEmitter {
   }
 
   /**
+   * Download a DAG from a Hornet Storage relay
+   * @param address The address of the relay
+   * @param port The port of the relay
+   * @param pubKey The public key of the relay
+   * @param rootHash The root hash of the DAG to download
+   * @param options Optional parameters for the download
+   * @returns A promise that resolves with the command result
+   */
+  async download(
+    address: string, 
+    port: string, 
+    pubKey: string, 
+    rootHash: string, 
+    options?: {
+      fromLeaf?: number,
+      toLeaf?: number,
+      outputDir?: string,
+      withContent?: boolean,
+      jsonOutput?: boolean,
+      jsonFile?: string
+    }
+  ): Promise<GitnestrCommandResult> {
+    const args = [address, port, pubKey, rootHash];
+    
+    if (options?.fromLeaf) args.push('--from', options.fromLeaf.toString());
+    if (options?.toLeaf) args.push('--to', options.toLeaf.toString());
+    if (options?.outputDir) args.push('--output', options.outputDir);
+    if (options?.withContent === false) args.push('--content=false');
+    if (options?.jsonOutput) args.push('--json');
+    if (options?.jsonFile) args.push('--json-file', options.jsonFile);
+    
+    return this.executeCommand('download', args);
+  }
+
+  /**
    * Write a file to a repository
    * @param repoPath The path to the repository (pubkey/reponame)
    * @param filePath The path to the file, relative to the repository root
