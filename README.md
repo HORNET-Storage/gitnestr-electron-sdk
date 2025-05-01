@@ -15,7 +15,7 @@ A powerful SDK for Electron applications that provides both Git repository manag
 
 ### GitNestr Bridge
 
-- 🚀 Direct integration with the gitnestr CLI
+- 🚀 Direct integration with the GitNestr CLI
 - 🔐 Key management for secure repository access
 - 🔄 Repository operations (init, clone, push, pull, fetch)
 - 📦 Archive retrieval for repository DAGs
@@ -42,7 +42,7 @@ The SDK consists of four main packages:
 
 ### GitNestr Bridge Packages
 
-3. `@gitnestr/electron-gitnestr-bridge`: Runs in the main process, interfaces with the gitnestr CLI
+3. `@gitnestr/electron-gitnestr-bridge`: Runs in the main process, interfaces with the GitNestr CLI
 4. `@gitnestr/browser-gitnestr-bridge`: Runs in the renderer process, communicates with the main process via IPC
 
 ## Usage
