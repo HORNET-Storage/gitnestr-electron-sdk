@@ -1,6 +1,6 @@
 # GitNestr Electron SDK
 
-A powerful SDK for Electron applications that provides both Git repository management and gitnestr CLI integration, enabling seamless transfer of Git repositories and interaction with the HORNET Storage network.
+A powerful SDK for Electron applications that provides both Git repository management and GitNestr CLI integration, enabling seamless transfer of Git repositories and interaction with the HORNET Storage network.
 
 ## Features
 
