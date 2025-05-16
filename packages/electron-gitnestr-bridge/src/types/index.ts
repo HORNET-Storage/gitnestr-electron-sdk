@@ -80,3 +80,30 @@ export interface GitnestrBridgeOptions {
   env?: Record<string, string>;
   relays?: string[];
 }
+
+export interface GitnestrDownloadCommandResponse {
+  meta: DagMetadata;
+  files: FileDetails[];
+}
+
+export interface DagMetadata {
+  root_hash: string;
+  total_leaves: number;
+  type: string;
+  name?: string;
+  timestamp?: string; // ISO8601 string
+}
+
+export interface FileDetails {
+  path: string;
+  hash: string;
+  type: 'file' | 'directory';
+  size?: number;
+  content_base64?: string;
+  leaf_range: LeafRange;
+}
+
+export interface LeafRange {
+  from: number;
+  to: number;
+}

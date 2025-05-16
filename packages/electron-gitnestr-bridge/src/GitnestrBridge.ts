@@ -11,7 +11,8 @@ import {
   GitnestrEventListener,
   GitnestrError,
   GitnestrErrorCode,
-  GitnestrBridgeOptions
+  GitnestrBridgeOptions,
+  GitnestrDownloadCommandResponse
 } from './types/index.js';
 import { error } from 'console';
 
@@ -41,13 +42,13 @@ export class GitnestrBridge extends EventEmitter {
   ): Promise<GitnestrCommandResult> {
     const commandId = `${command}-${Date.now()}`;
     const commandOptions = {
-        cwd: options.cwd || process.cwd(),
-        timeout: options.timeout || this.options.timeout,
-        env: { ...this.options.env, ...options.env },
-        stdio: Array.isArray(options.stdio)
-          ? options.stdio as ['pipe', 'pipe', 'pipe'] // Explicitly typed
-          : (options.stdio ?? 'pipe') // fallback to 'pipe'
-      };
+      cwd: options.cwd || process.cwd(),
+      timeout: options.timeout || this.options.timeout,
+      env: { ...this.options.env, ...options.env },
+      stdio: Array.isArray(options.stdio)
+        ? options.stdio as ['pipe', 'pipe', 'pipe'] // Explicitly typed
+        : (options.stdio ?? 'pipe') // fallback to 'pipe'
+    };
 
     try {
       // Create the child process
@@ -99,16 +100,10 @@ export class GitnestrBridge extends EventEmitter {
       };
       this.emit('event', successEvent);
 
-      const execaErr = error as Partial<{
-        exitCode: number;
-        stdout: string;
-        stderr: string;
-      }>;
-
       return {
-        stdout: execaErr.stdout ?? '',
-        stderr: execaErr.stderr ?? '',
-        exitCode: execaErr.exitCode ?? 0,
+        stdout: result.stdout ?? '',
+        stderr: result.stderr ?? '',
+        exitCode: result.exitCode ?? 0,
         command: `${this.options.gitnestrPath} ${command} ${args.join(' ')}`
       };
     } catch (error: any) {
@@ -157,9 +152,22 @@ export class GitnestrBridge extends EventEmitter {
 
   /**
    * Initialize a new gitnestr repository
+   * @param repoPath The path to the repository
+   * @param keyAlias Optional key alias to use
+   * @param nonInteractive Optional flag to skip interactive prompts
+   * @returns A promise that resolves with the repository info
    */
-  async init(repoPath: string): Promise<GitnestrRepository> {
+  async init(repoPath: string, keyAlias?: string, nonInteractive?: boolean): Promise<GitnestrRepository> {
     const args = [repoPath];
+
+    if (keyAlias) {
+      args.push('-a', keyAlias);
+    }
+
+    if (nonInteractive) {
+      args.push('-n');
+    }
+
     await this.executeCommand('init', args);
     return { path: repoPath };
   }
@@ -167,33 +175,45 @@ export class GitnestrBridge extends EventEmitter {
   /**
    * Clone a gitnestr repository
    */
-  async clone(url: string, destPath?: string, branch?: string, keyAlias?: string): Promise<GitnestrRepository> {
-    const args = [url];
-    
-    // Add branch if provided
-    if (branch) {
-      args.push(branch);
+  async clone(url: string, destPath?: string, branch?: string, keyAlias?: string): Promise<{ success: boolean; repository: GitnestrRepository; error?: string }> {
+    try {
+      const args = [url];
+
+      // Add branch if provided
+      if (branch) {
+        args.push(branch);
+      }
+
+      // If destPath is provided, use -C flag
+      if (destPath) {
+        // Extract the parent directory from the destPath
+        const parentDir = path.dirname(destPath);
+
+        // Ensure the parent directory exists
+        fsSync.mkdirSync(parentDir, { recursive: true });
+
+        // Use -C flag for the parent directory
+        args.push('-C', parentDir);
+      }
+
+      if (keyAlias) {
+        args.push('-a', keyAlias);
+      }
+
+      await this.executeCommand('clone', args);
+
+      return {
+        success: true,
+        repository: { path: destPath || url.split('/').pop() || '' }
+      };
+    } catch (error: any) {
+      console.error('Clone error:', error);
+      return {
+        success: false,
+        repository: { path: '' },
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
-    
-    // If destPath is provided, use -C flag
-    if (destPath) {
-      // Extract the parent directory from the destPath
-      const parentDir = path.dirname(destPath);
-      
-      // Ensure the parent directory exists
-      fsSync.mkdirSync(parentDir, { recursive: true });
-      
-      // Use -C flag for the parent directory
-      args.push('-C', parentDir);
-    }
-    
-    if (keyAlias) {
-      args.push('-a', keyAlias);
-    }
-    
-    await this.executeCommand('clone', args);
-    
-    return { path: destPath || url.split('/').pop() || '' };
   }
 
   /**
@@ -207,18 +227,30 @@ export class GitnestrBridge extends EventEmitter {
   /**
    * Push changes to a gitnestr repository
    */
-  async push(repoPath: string, privateKey?: string, keyAlias?: string): Promise<GitnestrCommandResult> {
-    const args: string[] = [];
-    
-    if (privateKey) {
-      args.push('-p', privateKey);
+  async push(repoPath: string, privateKey?: string, keyAlias?: string): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+    try {
+      const args: string[] = [];
+
+      if (privateKey) {
+        args.push('-p', privateKey);
+      }
+
+      if (keyAlias) {
+        args.push('-a', keyAlias);
+      }
+
+      const result = await this.executeCommand('push', args, { cwd: repoPath });
+      return {
+        success: true,
+        result
+      };
+    } catch (error: any) {
+      console.error('Push error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
-    
-    if (keyAlias) {
-      args.push('-a', keyAlias);
-    }
-    
-    return this.executeCommand('push', args, { cwd: repoPath });
   }
 
   /**
@@ -231,53 +263,92 @@ export class GitnestrBridge extends EventEmitter {
 
   /**
    * Retrieve archive DAG for a repository
+   * @param url The repository URL
+   * @param branch Optional branch name
+   * @param privateKey Optional private key
+   * @param keyAlias Optional key alias
+   * @returns A promise that resolves with the archive paths and status
    */
-  async archive(url: string, branch?: string): Promise<string[]> {
+  async archive(
+    url: string,
+    branch?: string,
+    privateKey?: string,
+    keyAlias?: string
+  ): Promise<{ success: boolean; paths?: string[]; error?: string }> {
     const args = [url];
-    
+
     if (branch) {
       args.push(branch);
     }
-    
-    // Always request JSON output for easier parsing
+
+    if (privateKey) {
+      args.push('-p', privateKey);
+    }
+
+    if (keyAlias) {
+      args.push('-a', keyAlias);
+    }
+
+    // Request JSON output
     args.push('-j');
-    
-    const result = await this.executeCommand('archive', args);
-    
+
     try {
-      // Parse the JSON output
-      return JSON.parse(result.stdout);
-    } catch (e) {
-      throw new GitnestrError(
-        'Failed to parse archive output',
-        GitnestrErrorCode.INTERNAL_ERROR,
-        { stdout: result.stdout }
-      );
+      const result = await this.executeCommand('archive', args);
+
+      const paths: string[] = JSON.parse(result.stdout);
+
+      return {
+        success: true,
+        paths
+      };
+    } catch (error: any) {
+      console.error('Archive error:', error);
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 
   /**
    * Generate a new key pair
+   * @param keyAlias Optional key alias to use
+   * @param passphrase Optional passphrase to automatically store the key
+   * @returns A promise that resolves with the private and public keys (empty if stored directly)
    */
-  async generateKeys(): Promise<{ privateKey: string; publicKey: string }> {
-    const result = await this.executeCommand('keys', ['generate']);
-    
-    // Parse the output to extract the keys
-    const privateKeyMatch = result.stdout.match(/Private Key: (.+)/);
-    const publicKeyMatch = result.stdout.match(/Public Key: (.+)/);
-    
-    if (!privateKeyMatch || !publicKeyMatch) {
-      throw new GitnestrError(
-        'Failed to parse key generation output',
-        GitnestrErrorCode.INTERNAL_ERROR,
-        { stdout: result.stdout }
-      );
+  async generateKeys(keyAlias?: string, passphrase?: string): Promise<{ privateKey: string; publicKey: string }> {
+    const args = ['generate'];
+
+    if (keyAlias) {
+      args.push('-a', keyAlias);
     }
-    
-    return {
-      privateKey: privateKeyMatch[1],
-      publicKey: publicKeyMatch[1]
-    };
+
+    if (passphrase) {
+      args.push('-p', passphrase);
+      // When passphrase is provided, keys are stored directly and not displayed
+      await this.executeCommand('keys', args);
+      return { privateKey: '', publicKey: '' }; // Keys are not returned when stored directly
+    } else {
+      const result = await this.executeCommand('keys', args);
+
+      // Parse the output to extract the keys
+      const privateKeyMatch = result.stdout.match(/Private Key: (.+)/);
+      const publicKeyMatch = result.stdout.match(/Public Key: (.+)/);
+
+      if (!privateKeyMatch || !publicKeyMatch) {
+        throw new GitnestrError(
+          'Failed to parse key generation output',
+          GitnestrErrorCode.INTERNAL_ERROR,
+          { stdout: result.stdout }
+        );
+      }
+
+      return {
+        privateKey: privateKeyMatch[1],
+        publicKey: publicKeyMatch[1]
+      };
+    }
   }
 
   /**
@@ -301,8 +372,20 @@ export class GitnestrBridge extends EventEmitter {
    * @param message The commit message
    * @returns A promise that resolves with the command result
    */
-  async commit(repoPath: string, message: string): Promise<GitnestrCommandResult> {
-    return this.executeCommand('commit', [message], { cwd: repoPath });
+  async commit(repoPath: string, message: string): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+    try {
+      const result = await this.executeCommand('commit', [message], { cwd: repoPath });
+      return {
+        success: true,
+        result
+      };
+    } catch (error: any) {
+      console.error('Commit error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 
   /**
@@ -339,10 +422,10 @@ export class GitnestrBridge extends EventEmitter {
    * @returns A promise that resolves with the command result
    */
   async download(
-    address: string, 
-    port: string, 
-    pubKey: string, 
-    rootHash: string, 
+    address: string,
+    port: string,
+    pubKey: string,
+    rootHash: string,
     options?: {
       fromLeaf?: number,
       toLeaf?: number,
@@ -351,17 +434,44 @@ export class GitnestrBridge extends EventEmitter {
       jsonOutput?: boolean,
       jsonFile?: string
     }
-  ): Promise<GitnestrCommandResult> {
+  ): Promise<{ success: boolean; result?: GitnestrDownloadCommandResponse; error?: string }> {
     const args = [address, port, pubKey, rootHash];
-    
+
     if (options?.fromLeaf) args.push('--from', options.fromLeaf.toString());
     if (options?.toLeaf) args.push('--to', options.toLeaf.toString());
     if (options?.outputDir) args.push('--output', options.outputDir);
     if (options?.withContent === false) args.push('--content=false');
     if (options?.jsonOutput) args.push('--json');
     if (options?.jsonFile) args.push('--json-file', options.jsonFile);
-    
-    return this.executeCommand('download', args);
+
+    args.push('-j');
+
+    try {
+      const result = await this.executeCommand('download', args);
+
+      const parsedResult: GitnestrDownloadCommandResponse = JSON.parse(result.stdout);
+
+      return {
+        success: true,
+        result: parsedResult
+      };
+    } catch (error: any) {
+      console.error('Download error:', error);
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Revert the last bundle applied to the current branch
+   * @param repoPath The path to the repository
+   * @returns A promise that resolves with the command result
+   */
+  async revert(repoPath: string): Promise<GitnestrCommandResult> {
+    return this.executeCommand('revert', [], { cwd: repoPath });
   }
 
   /**
@@ -375,21 +485,21 @@ export class GitnestrBridge extends EventEmitter {
     try {
       // Normalize and resolve the full path (ensuring it's within the repo)
       const normalizedFilePath = path.normalize(filePath);
-      
+
       // Check for directory traversal attempts
       if (normalizedFilePath.startsWith('..') || path.isAbsolute(normalizedFilePath)) {
         throw new Error('Invalid file path: Path must be relative to the repository root');
       }
-      
+
       const fullPath = path.join(repoPath, normalizedFilePath);
-      
+
       // Ensure the directory exists
       const directory = path.dirname(fullPath);
       await fs.mkdir(directory, { recursive: true });
-      
+
       // Write the file
       await fs.writeFile(fullPath, content);
-      
+
       // Emit success event
       const successEvent: GitnestrEvent = {
         type: 'success',
@@ -397,7 +507,7 @@ export class GitnestrBridge extends EventEmitter {
         message: `File ${filePath} written successfully`
       };
       this.emit('event', successEvent);
-      
+
       return { success: true, message: `File ${filePath} written successfully` };
     } catch (error: any) {
       // Emit error event
@@ -408,7 +518,7 @@ export class GitnestrBridge extends EventEmitter {
         code: GitnestrErrorCode.INTERNAL_ERROR
       };
       this.emit('event', errorEvent);
-      
+
       throw new GitnestrError(
         `Failed to write file: ${filePath}`,
         GitnestrErrorCode.INTERNAL_ERROR,
