@@ -1,6 +1,6 @@
-# Gitnestr Electron SDK
+# GitNestr Electron SDK
 
-A powerful SDK for Electron applications that provides both Git repository management and gitnestr CLI integration, enabling seamless transfer of Git repositories and interaction with the HORNET Storage network.
+A powerful SDK for Electron applications that provides both Git repository management and GitNestr CLI integration, enabling seamless transfer of Git repositories and interaction with the HORNET Storage network.
 
 ## Features
 
@@ -13,9 +13,9 @@ A powerful SDK for Electron applications that provides both Git repository manag
 - ⚡ Built on LightningFS for high-performance in-memory filesystem
 - 🛡️ Error handling and transfer verification
 
-### Gitnestr Bridge
+### GitNestr Bridge
 
-- 🚀 Direct integration with the gitnestr CLI
+- 🚀 Direct integration with the GitNestr CLI
 - 🔐 Key management for secure repository access
 - 🔄 Repository operations (init, clone, push, pull, fetch)
 - 📦 Archive retrieval for repository DAGs
@@ -40,9 +40,9 @@ The SDK consists of four main packages:
 1. `@gitnestr/electron-git-bridge`: Runs in the main process, handles filesystem access for Git repositories
 2. `@gitnestr/browser-git-bridge`: Runs in the renderer process, manages in-memory filesystem for Git repositories
 
-### Gitnestr Bridge Packages
+### GitNestr Bridge Packages
 
-3. `@gitnestr/electron-gitnestr-bridge`: Runs in the main process, interfaces with the gitnestr CLI
+3. `@gitnestr/electron-gitnestr-bridge`: Runs in the main process, interfaces with the GitNestr CLI
 4. `@gitnestr/browser-gitnestr-bridge`: Runs in the renderer process, communicates with the main process via IPC
 
 ## Usage
@@ -120,7 +120,7 @@ ipcRenderer.on("repo-chunk", async (_, chunk) => {
 });
 ```
 
-### Gitnestr Bridge Usage
+### GitNestr Bridge Usage
 
 #### Main Process (Electron)
 
@@ -240,7 +240,7 @@ interface BrowserGitBridgeOptions {
 }
 ```
 
-### Gitnestr Bridge Options
+### GitNestr Bridge Options
 
 #### ElectronGitnestrBridge Options
 
@@ -278,7 +278,7 @@ try {
 }
 ```
 
-### Gitnestr Bridge Errors
+### GitNestr Bridge Errors
 
 ```typescript
 try {
@@ -306,7 +306,7 @@ Check out the `example` directory for a complete working example of:
 - Progress tracking
 - Error handling
 - Repository information display
-- Gitnestr CLI integration
+- GitNestr CLI integration
 
 To run the example:
 
@@ -337,7 +337,7 @@ npm start
 - `async verifyTransfer(): Promise<{ success: boolean; errors: string[] }>`
 - `async getRepository(path: string): Promise<GitRepository>`
 
-### Gitnestr Bridge API
+### GitNestr Bridge API
 
 #### ElectronGitnestrBridge
 
