@@ -92,6 +92,12 @@ export interface DagMetadata {
   type: string;
   name?: string;
   timestamp?: string; // ISO8601 string
+  latest_commit_hash?: string;
+  latest_commit_author?: string;
+  latest_commit_date?: string;
+  latest_commit_message?: string;
+  commit_count?: number;
+  file_count?: number;
 }
 
 export interface FileDetails {
@@ -101,6 +107,10 @@ export interface FileDetails {
   size?: number;
   content_base64?: string;
   leaf_range: LeafRange;
+  last_modified_hash?: string;
+  last_modified_author?: string;
+  last_modified_date?: string;
+  last_modified_message?: string;
 }
 
 export interface LeafRange {
