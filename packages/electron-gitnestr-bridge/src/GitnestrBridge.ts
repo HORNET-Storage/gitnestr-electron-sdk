@@ -370,11 +370,23 @@ export class GitnestrBridge extends EventEmitter {
    * Commit changes to a gitnestr repository
    * @param repoPath The path to the repository
    * @param message The commit message
+   * @param branch Optional branch to commit to (default: current branch)
    * @returns A promise that resolves with the command result
    */
-  async commit(repoPath: string, message: string): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+  async commit(repoPath: string, message: string, branch?: string, keepBranch?: boolean): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
     try {
-      const result = await this.executeCommand('commit', [message], { cwd: repoPath });
+      const args = [message];
+
+      // Add branch flag if provided
+      if (branch) {
+        args.push('--branch', branch);
+      }
+
+      if (keepBranch) {
+        args.push('--keep-branch');
+      }
+
+      const result = await this.executeCommand('commit', args, { cwd: repoPath });
       return {
         success: true,
         result
