@@ -1,5 +1,6 @@
 export { BrowserGitBridge } from './BrowserGitBridge';
 export {
+  RepositoryId,
   GitRepository,
   FileChunk,
   TransferProgress,

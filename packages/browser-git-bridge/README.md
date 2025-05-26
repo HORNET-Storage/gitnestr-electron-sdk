@@ -10,76 +10,73 @@ npm install @gitnestr/browser-git-bridge
 
 ## Usage
 
+### Multi-Repository Support
+
+The bridge now supports managing multiple repositories in a single filesystem instance, with each repository stored at `/<ownerPubkey>:<repoName>/`.
+
 ```typescript
-import { BrowserGitBridge } from '@gitnestr/browser-git-bridge';
+import { BrowserGitBridge, RepositoryId } from '@gitnestr/browser-git-bridge';
 
-// Initialize with options
+// Initialize the bridge
 const bridge = new BrowserGitBridge({
-  fsName: 'my-git-repo',
+  fsName: 'gitnestr',
   maxRepoSize: 1024 * 1024 * 1024, // 1GB
-  chunkSize: 1024 * 1024, // 1MB
-  cacheSize: 100 * 1024 * 1024, // 100MB
-  persistCache: false
+  chunkSize: 1024 * 1024 // 1MB
 });
 
-// Initialize filesystem
-await bridge.init();
+// Define repository ID
+const repoId: RepositoryId = {
+  ownerPubkey: 'npub1234...',
+  repoName: 'my-project'
+};
 
-// Handle repository metadata and manifest
-ipcRenderer.on('repo-metadata', async (_, data) => {
-  // Set up transfer manifest
-  bridge.setTransferManifest(data.manifest);
-  
-  // Update UI with repository info
-  console.log('Repository info:', {
-    path: data.path,
-    size: data.size,
-    branches: data.branches,
-    head: data.head,
-    remotes: data.remotes
-  });
-});
+// Initialize a specific repository
+await bridge.initializeRepo(repoId);
 
-// Handle incoming file chunks
-ipcRenderer.on('repo-chunk', async (_, chunk) => {
-  try {
-    // Process chunk
-    await bridge.receiveChunk(chunk);
-    
-    // Update progress UI
-    updateProgress(chunk.index, chunk.totalChunks);
-    
-    // Check if transfer is complete
-    if (bridge.isTransferComplete()) {
-      // Verify the transfer
-      const verification = await bridge.verifyTransfer();
-      if (verification.success) {
-        // Access repository through isomorphic-git
-        const repo = await bridge.getRepository('/');
-        console.log('Repository loaded:', repo);
-      } else {
-        console.error('Transfer verification failed:', verification.errors);
-      }
-    }
-  } catch (error) {
-    console.error('Error receiving chunk:', error);
+// Set transfer manifest for the repository
+bridge.setTransferManifest({
+  totalFiles: 10,
+  files: ['README.md', 'src/index.js', ...]
+}, repoId);
+
+// Receive file chunks for the repository
+await bridge.receiveChunk({
+  path: 'README.md',
+  index: 0,
+  totalChunks: 1,
+  data: new Uint8Array([...])
+}, repoId);
+
+// Check if transfer is complete
+if (bridge.isTransferComplete(repoId)) {
+  // Verify the transfer
+  const verification = await bridge.verifyTransfer(repoId);
+  if (verification.success) {
+    // Get repository information
+    const repo = await bridge.getRepository(repoId);
+    console.log('Repository loaded:', repo);
   }
-});
+}
+
+// List all repositories
+const repositories = await bridge.listRepositories();
+console.log('Available repositories:', repositories);
+
+// Access the underlying LightningFS instance
+const fs = bridge.getFileSystem();
+// Now you can use fs directly or with isomorphic-git
 ```
 
 ## API Reference
 
-### Constructor
+### Types
 
 ```typescript
-constructor(options?: BrowserGitBridgeOptions)
-```
+interface RepositoryId {
+  ownerPubkey: string;
+  repoName: string;
+}
 
-Creates a new BrowserGitBridge instance.
-
-### Options
-
-```typescript
 interface BrowserGitBridgeOptions {
   fsName?: string;          // Name for LightningFS instance (default: 'gitnestr')
   maxRepoSize?: number;     // Maximum repository size (default: 1GB)
@@ -87,79 +84,19 @@ interface BrowserGitBridgeOptions {
   cacheSize?: number;       // LightningFS cache size (default: 100MB)
   persistCache?: boolean;   // Persist filesystem cache (default: true)
 }
-```
 
-### Methods
-
-#### init
-
-```typescript
-async init(): Promise<void>
-```
-
-Initializes the in-memory filesystem. This should be called before any other operations.
-
-#### setTransferManifest
-
-```typescript
-setTransferManifest(manifest: TransferManifest): void
-```
-
-Sets up the transfer manifest that describes the files to be received.
-
-```typescript
 interface TransferManifest {
   totalFiles: number;
   files: string[];
 }
-```
 
-#### receiveChunk
-
-```typescript
-async receiveChunk(chunk: FileChunk): Promise<void>
-```
-
-Processes an incoming file chunk and writes it to the in-memory filesystem.
-
-```typescript
 interface FileChunk {
+  path: string;
   index: number;
   totalChunks: number;
   data: Uint8Array;
-  path: string;
 }
-```
 
-#### isTransferComplete
-
-```typescript
-isTransferComplete(): boolean
-```
-
-Checks if all expected files have been received based on the transfer manifest.
-
-#### verifyTransfer
-
-```typescript
-async verifyTransfer(): Promise<{ success: boolean; errors: string[] }>
-```
-
-Verifies that all files were transferred correctly by:
-- Checking file existence
-- Verifying file accessibility
-- Validating file types
-
-#### getRepository
-
-```typescript
-async getRepository(path: string): Promise<GitRepository>
-```
-
-Gets repository information using isomorphic-git.
-
-Returns:
-```typescript
 interface GitRepository {
   path: string;
   size: number;
@@ -169,13 +106,130 @@ interface GitRepository {
 }
 ```
 
+### Methods
+
+#### getFileSystem
+
+```typescript
+getFileSystem(): FS
+```
+
+Returns the underlying LightningFS instance for direct filesystem access.
+
+#### initializeRepo
+
+```typescript
+async initializeRepo(repoId: RepositoryId): Promise<void>
+```
+
+Initializes a new repository at `/<ownerPubkey>:<repoName>/`.
+
+#### setTransferManifest
+
+```typescript
+setTransferManifest(manifest: TransferManifest, repoId: RepositoryId): void
+```
+
+Sets the expected files for a repository transfer.
+
+#### receiveChunk
+
+```typescript
+async receiveChunk(chunk: FileChunk, repoId: RepositoryId): Promise<void>
+```
+
+Receives and processes a file chunk for a specific repository.
+
+#### isTransferComplete
+
+```typescript
+isTransferComplete(repoId: RepositoryId): boolean
+```
+
+Checks if all expected files have been received for a repository.
+
+#### verifyTransfer
+
+```typescript
+async verifyTransfer(repoId: RepositoryId): Promise<{ success: boolean; errors: string[] }>
+```
+
+Verifies the integrity of a completed transfer.
+
+#### getRepository
+
+```typescript
+async getRepository(repoId: RepositoryId): Promise<GitRepository>
+```
+
+Gets repository information including branches, remotes, and HEAD.
+
+#### listRepositories
+
+```typescript
+async listRepositories(): Promise<RepositoryId[]>
+```
+
+Lists all repositories in the filesystem.
+
+#### repositoryExists
+
+```typescript
+async repositoryExists(repoId: RepositoryId): Promise<boolean>
+```
+
+Checks if a repository exists.
+
+#### deleteRepository
+
+```typescript
+async deleteRepository(repoId: RepositoryId): Promise<void>
+```
+
+Deletes a repository and all its files.
+
+#### init
+
+```typescript
+async init(): Promise<void>
+```
+
+Clears all repositories and resets the filesystem (for testing/cleanup).
+
+## Working with isomorphic-git
+
+Once you have the filesystem instance, you can use it directly with isomorphic-git:
+
+```typescript
+import * as git from 'isomorphic-git';
+
+const fs = bridge.getFileSystem();
+const repoPath = `/${repoId.ownerPubkey}:${repoId.repoName}`;
+
+// List commits
+const commits = await git.log({
+  fs,
+  dir: repoPath,
+  depth: 5
+});
+
+// Check status
+const status = await git.statusMatrix({
+  fs,
+  dir: repoPath
+});
+
+// Read a file
+const content = await fs.promises.readFile(`${repoPath}/README.md`, 'utf8');
+```
+
 ## Error Handling
 
 The package uses the `GitBridgeError` class for error handling:
 
 ```typescript
 try {
-  await bridge.receiveChunk(chunk);
+  await bridge.receiveChunk(chunk, repoId);
 } catch (error) {
   if (error instanceof GitBridgeError) {
     console.error('Error code:', error.code);
@@ -186,25 +240,28 @@ try {
 ```
 
 Error codes:
-- `TRANSFER_ERROR`: Error during chunk transfer/processing
-- `INTERNAL_ERROR`: Unexpected internal error
+- `INVALID_REPOSITORY`: Repository validation failed
+- `REPOSITORY_NOT_FOUND`: Repository doesn't exist
+- `PERMISSION_DENIED`: Permission denied
+- `SIZE_LIMIT_EXCEEDED`: Size limit exceeded
+- `TRANSFER_ERROR`: Error during chunk transfer
+- `INTERNAL_ERROR`: Internal error
 
-## Integration with isomorphic-git
+## Migration from Single Repository
 
-Once a repository is loaded, you can use isomorphic-git's full API to work with it:
+If you were using the previous single-repository API, here's how to migrate:
 
 ```typescript
-import * as git from 'isomorphic-git';
+// Old API
+await bridge.initializeRepo('/my-repo');
+await bridge.receiveChunk(chunk);
+const repo = await bridge.getRepository('/my-repo');
 
-// Get the filesystem instance
-const fs = bridge.getFS();
-
-// Use isomorphic-git operations
-const commits = await git.log({
-  fs,
-  dir: '/',
-  depth: 5
-});
+// New API
+const repoId = { ownerPubkey: 'default', repoName: 'my-repo' };
+await bridge.initializeRepo(repoId);
+await bridge.receiveChunk(chunk, repoId);
+const repo = await bridge.getRepository(repoId);
 ```
 
 ## Example

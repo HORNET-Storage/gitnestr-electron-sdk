@@ -1,3 +1,8 @@
+export interface RepositoryId {
+  ownerPubkey: string;
+  repoName: string;
+}
+
 export interface GitRepository {
   path: string;
   size: number;
