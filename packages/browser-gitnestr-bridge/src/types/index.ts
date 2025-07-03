@@ -99,4 +99,70 @@ export interface IPCEventMessage {
   event: GitnestrEvent;
 }
 
+export interface DagJsonOutput {
+  meta: DagMetadata;
+  files: FileDetails[];
+}
+
+export interface DagMetadata {
+  root_hash: string;
+  total_leaves: number;
+  type: string;
+  name: string;
+  timestamp?: string;
+}
+
+export interface FileDetails {
+  path: string;
+  hash: string;
+  type: string;
+  size?: number;
+  content_base64?: string;
+  leaf_range: LeafRange;
+}
+
+export interface ArchiveJsonOutput {
+  meta: ArchiveMetadata;
+  files: ArchiveFileInfo[];
+}
+
+export interface ArchiveMetadata {
+  root_hash: string;
+  total_leaves: number;
+  type: string;
+  branch: string;
+  latest_commit_hash?: string;
+  latest_commit_author?: string;
+  latest_commit_date?: string;
+  latest_commit_message?: string;
+  commit_count?: number;
+  file_count?: number;
+  tags?: TagInfo[];
+}
+
+export interface ArchiveFileInfo {
+  path: string;
+  hash: string;
+  type: string;
+  size?: number;
+  leaf_range: LeafRange;
+  last_modified_hash?: string;
+  last_modified_author?: string;
+  last_modified_date?: string;
+  last_modified_message?: string;
+}
+
+export interface TagInfo {
+  name: string;
+  hash: string;
+  type: string;
+  message?: string;
+  author?: string;
+  date?: string;
+}
+
+export interface LeafRange {
+  from: number;
+  to: number;
+}
 export type IPCMessage = IPCResponse | IPCEventMessage;

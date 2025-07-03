@@ -11,7 +11,8 @@ import {
   IPCRequest,
   IPCResponse,
   IPCMessage,
-  RepositoryInfo
+  RepositoryInfo,
+  DagMetadata
 } from './types';
 
 const DEFAULT_OPTIONS: Required<BrowserGitnestrBridgeOptions> = {
@@ -21,7 +22,7 @@ const DEFAULT_OPTIONS: Required<BrowserGitnestrBridgeOptions> = {
 
 export class BrowserGitnestrBridge extends EventEmitter {
   private options: Required<BrowserGitnestrBridgeOptions>;
-  private pendingRequests: Map<string, { 
+  private pendingRequests: Map<string, {
     resolve: (value: any) => void;
     reject: (reason: any) => void;
     timeout: NodeJS.Timeout;
@@ -89,7 +90,7 @@ export class BrowserGitnestrBridge extends EventEmitter {
   private async sendIPCRequest(method: string, params: any[] = []): Promise<any> {
     return new Promise((resolve, reject) => {
       const id = `${method}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Create the request
       const request: IPCRequest = {
         id,
@@ -157,7 +158,7 @@ export class BrowserGitnestrBridge extends EventEmitter {
   /**
    * Retrieve archive DAG for a repository
    */
-  async archive(url: string, branch?: string): Promise<string[]> {
+  async archive(url: string, branch?: string): Promise<DagMetadata> {
     return this.sendIPCRequest('archive', [url, branch]);
   }
 
@@ -202,10 +203,10 @@ export class BrowserGitnestrBridge extends EventEmitter {
    * @returns A promise that resolves with the command result
    */
   async download(
-    address: string, 
-    port: string, 
-    pubKey: string, 
-    rootHash: string, 
+    address: string,
+    port: string,
+    pubKey: string,
+    rootHash: string,
     options?: {
       fromLeaf?: number,
       toLeaf?: number,
@@ -216,15 +217,15 @@ export class BrowserGitnestrBridge extends EventEmitter {
     }
   ): Promise<GitnestrCommandResult> {
     return this.sendIPCRequest('download', [
-      address, 
-      port, 
-      pubKey, 
-      rootHash, 
-      options?.fromLeaf, 
-      options?.toLeaf, 
-      options?.outputDir, 
-      options?.withContent, 
-      options?.jsonOutput, 
+      address,
+      port,
+      pubKey,
+      rootHash,
+      options?.fromLeaf,
+      options?.toLeaf,
+      options?.outputDir,
+      options?.withContent,
+      options?.jsonOutput,
       options?.jsonFile
     ]);
   }
@@ -240,7 +241,7 @@ export class BrowserGitnestrBridge extends EventEmitter {
     // Convert Buffer to base64 string if needed for IPC transmission
     const contentToSend = Buffer.isBuffer(content) ? content.toString('base64') : content;
     const isBase64 = Buffer.isBuffer(content);
-    
+
     return this.sendIPCRequest('writeFile', [repoPath, filePath, contentToSend, isBase64]);
   }
 

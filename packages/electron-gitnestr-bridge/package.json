@@ -1,6 +1,6 @@
 {
   "name": "@gitnestr/electron-gitnestr-bridge",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Electron bridge for gitnestr CLI integration in the Gitnestr SDK",
   "types": "dist/index.d.ts",
   "type": "module",

@@ -12,7 +12,9 @@ import {
   GitnestrError,
   GitnestrErrorCode,
   GitnestrBridgeOptions,
-  GitnestrDownloadCommandResponse
+  DagMetadata,
+  DagJsonOutput,
+  ArchiveJsonOutput
 } from './types/index.js';
 import { error } from 'console';
 
@@ -168,6 +170,8 @@ export class GitnestrBridge extends EventEmitter {
       args.push('-n');
     }
 
+    args.push("--silent")
+
     await this.executeCommand('init', args);
     return { path: repoPath };
   }
@@ -199,6 +203,8 @@ export class GitnestrBridge extends EventEmitter {
       if (keyAlias) {
         args.push('-a', keyAlias);
       }
+
+      args.push("--silent")
 
       await this.executeCommand('clone', args);
 
@@ -239,6 +245,8 @@ export class GitnestrBridge extends EventEmitter {
         args.push('-a', keyAlias);
       }
 
+      args.push("--silent")
+
       const result = await this.executeCommand('push', args, { cwd: repoPath });
       return {
         success: true,
@@ -274,7 +282,7 @@ export class GitnestrBridge extends EventEmitter {
     branch?: string,
     privateKey?: string,
     keyAlias?: string
-  ): Promise<{ success: boolean; paths?: string[]; error?: string }> {
+  ): Promise<{ success: boolean; result?: ArchiveJsonOutput; error?: string }> {
     const args = [url];
 
     if (branch) {
@@ -292,14 +300,20 @@ export class GitnestrBridge extends EventEmitter {
     // Request JSON output
     args.push('-j');
 
+    args.push("--silent")
+
     try {
       const result = await this.executeCommand('archive', args);
 
-      const paths: string[] = JSON.parse(result.stdout);
+      console.log(result.stdout)
+
+      const archiveData: ArchiveJsonOutput = JSON.parse(result.stdout);
+
+
 
       return {
         success: true,
-        paths
+        result: archiveData
       };
     } catch (error: any) {
       console.error('Archive error:', error);
@@ -386,7 +400,11 @@ export class GitnestrBridge extends EventEmitter {
         args.push('--keep-branch');
       }
 
+      args.push("--silent")
+
       const result = await this.executeCommand('commit', args, { cwd: repoPath });
+
+      console.log(result)
       return {
         success: true,
         result
@@ -446,7 +464,7 @@ export class GitnestrBridge extends EventEmitter {
       jsonOutput?: boolean,
       jsonFile?: string
     }
-  ): Promise<{ success: boolean; result?: GitnestrDownloadCommandResponse; error?: string }> {
+  ): Promise<{ success: boolean; result?: DagJsonOutput; error?: string }> {
     const args = [address, port, pubKey, rootHash];
 
     if (options?.fromLeaf) args.push('--from', options.fromLeaf.toString());
@@ -458,10 +476,12 @@ export class GitnestrBridge extends EventEmitter {
 
     args.push('-j');
 
+    args.push("--silent")
+
     try {
       const result = await this.executeCommand('download', args);
 
-      const parsedResult: GitnestrDownloadCommandResponse = JSON.parse(result.stdout);
+      const parsedResult: DagJsonOutput = JSON.parse(result.stdout);
 
       return {
         success: true,
