@@ -225,9 +225,28 @@ export class GitnestrBridge extends EventEmitter {
   /**
    * Pull changes from a gitnestr repository
    */
-  async pull(repoPath: string, branch?: string): Promise<GitnestrCommandResult> {
-    const args = branch ? [branch] : [];
-    return this.executeCommand('pull', args, { cwd: repoPath });
+  async pull(repoPath: string, branch?: string): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+     try {
+      const args: string[] = [];
+
+      if (branch) {
+        args.push(branch);
+      }
+
+      args.push("--silent")
+
+      const result = await this.executeCommand('pull', args, { cwd: repoPath });
+      return {
+        success: true,
+        result
+      };
+    } catch (error: any) {
+      console.error('Pull error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 
   /**
