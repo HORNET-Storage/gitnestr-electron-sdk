@@ -9,5 +9,6 @@ export {
   GitErrorCode,
   BrowserGitBridgeOptions,
   TransferManifest,
-  FileTransfer
+  FileTransfer,
+  FS
 } from './types';

@@ -1,3 +1,7 @@
+import FS from '@isomorphic-git/lightning-fs';
+
+export type { default as FS } from '@isomorphic-git/lightning-fs';
+
 export interface RepositoryId {
   ownerPubkey: string;
   repoName: string;
