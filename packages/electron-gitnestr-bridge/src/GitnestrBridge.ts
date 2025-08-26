@@ -14,7 +14,15 @@ import {
   GitnestrBridgeOptions,
   DagMetadata,
   DagJsonOutput,
-  ArchiveJsonOutput
+  ArchiveJsonOutput,
+  PullRequestOptions,
+  PullRequestResponse,
+  PullRequestListItem,
+  ListOptions,
+  RepositoryListItem,
+  PushEvent,
+  ConfigOptions,
+  ConfigItem
 } from './types/index.js';
 import { error } from 'console';
 
@@ -154,44 +162,74 @@ export class GitnestrBridge extends EventEmitter {
 
   /**
    * Initialize a new gitnestr repository
-   * @param repoPath The path to the repository
-   * @param keyAlias Optional key alias to use
-   * @param nonInteractive Optional flag to skip interactive prompts
+   * @param name The repository name
+   * @param options Init options
    * @returns A promise that resolves with the repository info
    */
-  async init(repoPath: string, keyAlias?: string, nonInteractive?: boolean): Promise<GitnestrRepository> {
-    const args = [repoPath];
+  async init(
+    name: string,
+    options: {
+      repoPath?: string;
+      alias?: string;
+      privateKey?: string;
+      nonInteractive?: boolean;
+      silent?: boolean;
+    } = {}
+  ): Promise<GitnestrRepository> {
+    const args = [name];
 
-    if (keyAlias) {
-      args.push('-a', keyAlias);
+    if (options.repoPath) {
+      args.push('-C', options.repoPath);
     }
 
-    if (nonInteractive) {
+    if (options.alias) {
+      args.push('-a', options.alias);
+    }
+
+    if (options.privateKey) {
+      args.push('-p', options.privateKey);
+    }
+
+    if (options.nonInteractive) {
       args.push('-n');
     }
 
-    args.push("--silent")
+    if (options.silent !== false) {
+      args.push('-s');
+    }
 
     await this.executeCommand('init', args);
-    return { path: repoPath };
+    return { path: options.repoPath || name };
   }
 
   /**
    * Clone a gitnestr repository
+   * @param url The repository URL
+   * @param options Clone options
+   * @returns A promise that resolves with the clone result
    */
-  async clone(url: string, destPath?: string, branch?: string, keyAlias?: string): Promise<{ success: boolean; repository: GitnestrRepository; error?: string }> {
+  async clone(
+    url: string, 
+    options: {
+      destPath?: string;
+      branch?: string;
+      alias?: string;
+      privateKey?: string;
+      silent?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; repository: GitnestrRepository; error?: string }> {
     try {
       const args = [url];
 
       // Add branch if provided
-      if (branch) {
-        args.push(branch);
+      if (options.branch) {
+        args.push(options.branch);
       }
 
       // If destPath is provided, use -C flag
-      if (destPath) {
+      if (options.destPath) {
         // Extract the parent directory from the destPath
-        const parentDir = path.dirname(destPath);
+        const parentDir = path.dirname(options.destPath);
 
         // Ensure the parent directory exists
         fsSync.mkdirSync(parentDir, { recursive: true });
@@ -200,17 +238,23 @@ export class GitnestrBridge extends EventEmitter {
         args.push('-C', parentDir);
       }
 
-      if (keyAlias) {
-        args.push('-a', keyAlias);
+      if (options.alias) {
+        args.push('-a', options.alias);
       }
 
-      args.push("--silent")
+      if (options.privateKey) {
+        args.push('-p', options.privateKey);
+      }
+
+      if (options.silent !== false) {
+        args.push('-s');
+      }
 
       await this.executeCommand('clone', args);
 
       return {
         success: true,
-        repository: { path: destPath || url.split('/').pop() || '' }
+        repository: { path: options.destPath || url.split('/').pop() || '' }
       };
     } catch (error: any) {
       console.error('Clone error:', error);
@@ -224,16 +268,32 @@ export class GitnestrBridge extends EventEmitter {
 
   /**
    * Pull changes from a gitnestr repository
+   * @param repoPath The path to the repository
+   * @param options Pull options
+   * @returns A promise that resolves with the command result
    */
-  async pull(repoPath: string, branch?: string): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+  async pull(
+    repoPath: string, 
+    options: {
+      branch?: string;
+      privateKey?: string;
+      silent?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
      try {
       const args: string[] = [];
 
-      if (branch) {
-        args.push(branch);
+      if (options.branch) {
+        args.push(options.branch);
       }
 
-      args.push("--silent")
+      if (options.privateKey) {
+        args.push('-p', options.privateKey);
+      }
+
+      if (options.silent !== false) {
+        args.push('-s');
+      }
 
       const result = await this.executeCommand('pull', args, { cwd: repoPath });
       return {
@@ -251,20 +311,52 @@ export class GitnestrBridge extends EventEmitter {
 
   /**
    * Push changes to a gitnestr repository
+   * @param repoPath The path to the repository
+   * @param options Push options
+   * @returns A promise that resolves with the command result
    */
-  async push(repoPath: string, privateKey?: string, keyAlias?: string): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+  async push(
+    repoPath: string, 
+    options: {
+      privateKey?: string;
+      keyAlias?: string;
+      force?: boolean;
+      pullRequest?: string;
+      tags?: boolean;
+      skipVerification?: boolean;
+      silent?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
     try {
       const args: string[] = [];
 
-      if (privateKey) {
-        args.push('-p', privateKey);
+      if (options.privateKey) {
+        args.push('-p', options.privateKey);
       }
 
-      if (keyAlias) {
-        args.push('-a', keyAlias);
+      if (options.keyAlias) {
+        args.push('-a', options.keyAlias);
       }
 
-      args.push("--silent")
+      if (options.force) {
+        args.push('-f');
+      }
+
+      if (options.pullRequest) {
+        args.push('-r', options.pullRequest);
+      }
+
+      if (options.tags) {
+        args.push('-t');
+      }
+
+      if (options.skipVerification) {
+        args.push('--skip-verification');
+      }
+
+      if (options.silent !== false) {
+        args.push('-s');
+      }
 
       const result = await this.executeCommand('push', args, { cwd: repoPath });
       return {
@@ -292,15 +384,19 @@ export class GitnestrBridge extends EventEmitter {
    * Retrieve archive DAG for a repository
    * @param url The repository URL
    * @param branch Optional branch name
-   * @param privateKey Optional private key
-   * @param keyAlias Optional key alias
+   * @param options Additional options
    * @returns A promise that resolves with the archive paths and status
    */
   async archive(
     url: string,
     branch?: string,
-    privateKey?: string,
-    keyAlias?: string
+    options: {
+      privateKey?: string;
+      keyAlias?: string;
+      jsonOutput?: boolean;
+      silent?: boolean;
+      repoPath?: string;
+    } = {}
   ): Promise<{ success: boolean; result?: ArchiveJsonOutput; error?: string }> {
     const args = [url];
 
@@ -308,32 +404,39 @@ export class GitnestrBridge extends EventEmitter {
       args.push(branch);
     }
 
-    if (privateKey) {
-      args.push('-p', privateKey);
+    if (options.privateKey) {
+      args.push('-p', options.privateKey);
     }
 
-    if (keyAlias) {
-      args.push('-a', keyAlias);
+    if (options.keyAlias) {
+      args.push('-a', options.keyAlias);
     }
 
-    // Request JSON output
-    args.push('-j');
+    if (options.repoPath) {
+      args.push('-C', options.repoPath);
+    }
 
-    args.push("--silent")
+    // Default to JSON output for programmatic use
+    if (options.jsonOutput !== false) {
+      args.push('-j');
+    }
+
+    if (options.silent !== false) {
+      args.push('-s');
+    }
 
     try {
       const result = await this.executeCommand('archive', args);
 
-      console.log(result.stdout)
+      if (options.jsonOutput !== false) {
+        const archiveData: ArchiveJsonOutput = JSON.parse(result.stdout);
+        return {
+          success: true,
+          result: archiveData
+        };
+      }
 
-      const archiveData: ArchiveJsonOutput = JSON.parse(result.stdout);
-
-
-
-      return {
-        success: true,
-        result: archiveData
-      };
+      return { success: true, result: undefined };
     } catch (error: any) {
       console.error('Archive error:', error);
 
@@ -403,27 +506,36 @@ export class GitnestrBridge extends EventEmitter {
    * Commit changes to a gitnestr repository
    * @param repoPath The path to the repository
    * @param message The commit message
-   * @param branch Optional branch to commit to (default: current branch)
+   * @param options Commit options
    * @returns A promise that resolves with the command result
    */
-  async commit(repoPath: string, message: string, branch?: string, keepBranch?: boolean): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+  async commit(
+    repoPath: string, 
+    message: string, 
+    options: {
+      branch?: string;
+      keepBranch?: boolean;
+      silent?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
     try {
       const args = [message];
 
       // Add branch flag if provided
-      if (branch) {
-        args.push('--branch', branch);
+      if (options.branch) {
+        args.push('-b', options.branch);
       }
 
-      if (keepBranch) {
-        args.push('--keep-branch');
+      if (options.keepBranch) {
+        args.push('-k');
       }
 
-      args.push("--silent")
+      if (options.silent !== false) {
+        args.push('-s');
+      }
 
       const result = await this.executeCommand('commit', args, { cwd: repoPath });
 
-      console.log(result)
       return {
         success: true,
         result
@@ -575,6 +687,317 @@ export class GitnestrBridge extends EventEmitter {
         GitnestrErrorCode.INTERNAL_ERROR,
         { repoPath, filePath, error: error.message }
       );
+    }
+  }
+
+  /**
+   * Create a pull request
+   * @param repoPath The path to the repository
+   * @param sourceBranch The source branch
+   * @param targetBranch The target branch
+   * @param options Pull request options
+   * @returns A promise that resolves with the pull request response
+   */
+  async createPullRequest(
+    repoPath: string,
+    sourceBranch: string,
+    targetBranch: string,
+    options: PullRequestOptions = {}
+  ): Promise<{ success: boolean; result?: PullRequestResponse; error?: string }> {
+    try {
+      const args = [sourceBranch, targetBranch];
+
+      if (options.title) args.push('-t', options.title);
+      if (options.description) args.push('-d', options.description);
+      if (options.privateKey) args.push('-p', options.privateKey);
+      if (options.keyAlias) args.push('-a', options.keyAlias);
+      if (options.jsonOutput) args.push('-j');
+      if (options.noEvent) args.push('--no-event');
+      if (options.silent) args.push('-s');
+
+      const result = await this.executeCommand('pr', ['request', ...args], { cwd: repoPath });
+
+      if (options.jsonOutput) {
+        try {
+          const jsonResponse = JSON.parse(result.stdout) as PullRequestResponse;
+          return { success: true, result: jsonResponse };
+        } catch (parseError) {
+          return {
+            success: false,
+            error: `Failed to parse JSON response: ${parseError}`
+          };
+        }
+      }
+
+      return { success: true, result: undefined };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * List pull requests for a repository
+   * @param repoPath The path to the repository
+   * @param options List options
+   * @returns A promise that resolves with the pull request list
+   */
+  async listPullRequests(
+    repoPath: string,
+    relayUrl: string,
+    options: ListOptions = {}
+  ): Promise<{ success: boolean; result?: PullRequestListItem[]; error?: string }> {
+    try {
+      const args = [relayUrl];
+
+      if (options.repo) args.push('-r', options.repo);
+      if (options.pr) args.push('--pr');
+      if (options.debug) args.push('-d');
+      if (options.jsonOutput) args.push('-j');
+      if (options.silent) args.push('-s');
+
+      const result = await this.executeCommand('list', args, { cwd: repoPath });
+
+      if (options.jsonOutput) {
+        try {
+          const jsonResponse = JSON.parse(result.stdout) as PullRequestListItem[];
+          return { success: true, result: jsonResponse };
+        } catch (parseError) {
+          return {
+            success: false,
+            error: `Failed to parse JSON response: ${parseError}`
+          };
+        }
+      }
+
+      return { success: true, result: undefined };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Approve a pull request
+   * @param repoPath The path to the repository
+   * @param pullRequestId The pull request ID or bundle hash
+   * @param options Additional options
+   * @returns A promise that resolves with the command result
+   */
+  async approvePullRequest(
+    repoPath: string,
+    pullRequestId: string,
+    options: { privateKey?: string; keyAlias?: string; silent?: boolean } = {}
+  ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+    try {
+      const args = [pullRequestId];
+
+      if (options.privateKey) args.push('-p', options.privateKey);
+      if (options.keyAlias) args.push('-a', options.keyAlias);
+      if (options.silent) args.push('-s');
+
+      const result = await this.executeCommand('pr', ['approve', ...args], { cwd: repoPath });
+      return { success: true, result };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Merge a pull request
+   * @param repoPath The path to the repository
+   * @param pullRequestId The pull request ID or bundle hash
+   * @param options Additional options
+   * @returns A promise that resolves with the command result
+   */
+  async mergePullRequest(
+    repoPath: string,
+    pullRequestId: string,
+    options: { privateKey?: string; keyAlias?: string; silent?: boolean } = {}
+  ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+    try {
+      const args = [pullRequestId];
+
+      if (options.privateKey) args.push('-p', options.privateKey);
+      if (options.keyAlias) args.push('-a', options.keyAlias);
+      if (options.silent) args.push('-s');
+
+      const result = await this.executeCommand('pr', ['merge', ...args], { cwd: repoPath });
+      return { success: true, result };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Review a pull request
+   * @param repoPath The path to the repository
+   * @param pullRequestId The pull request ID or bundle hash
+   * @param options Additional options
+   * @returns A promise that resolves with the command result
+   */
+  async reviewPullRequest(
+    repoPath: string,
+    pullRequestId: string,
+    options: { privateKey?: string; keyAlias?: string; silent?: boolean } = {}
+  ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+    try {
+      const args = [pullRequestId];
+
+      if (options.privateKey) args.push('-p', options.privateKey);
+      if (options.keyAlias) args.push('-a', options.keyAlias);
+      if (options.silent) args.push('-s');
+
+      const result = await this.executeCommand('pr', ['review', ...args], { cwd: repoPath });
+      return { success: true, result };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * List repositories and branches
+   * @param relayUrl The relay URL
+   * @param options List options
+   * @returns A promise that resolves with the repository list
+   */
+  async listRepositories(
+    relayUrl: string,
+    options: ListOptions = {}
+  ): Promise<{ success: boolean; result?: RepositoryListItem[]; error?: string }> {
+    try {
+      const args = [relayUrl];
+
+      if (options.repo) args.push('-r', options.repo);
+      if (options.pushEvents) args.push('-p', options.pushEvents);
+      if (options.debug) args.push('-d');
+      if (options.jsonOutput) args.push('-j');
+      if (options.silent) args.push('-s');
+
+      const result = await this.executeCommand('list', args);
+
+      if (options.jsonOutput) {
+        try {
+          const jsonResponse = JSON.parse(result.stdout) as RepositoryListItem[];
+          return { success: true, result: jsonResponse };
+        } catch (parseError) {
+          return {
+            success: false,
+            error: `Failed to parse JSON response: ${parseError}`
+          };
+        }
+      }
+
+      return { success: true, result: undefined };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * List push events for a branch
+   * @param relayUrl The relay URL
+   * @param branch The branch name
+   * @param options List options
+   * @returns A promise that resolves with the push events
+   */
+  async listPushEvents(
+    relayUrl: string,
+    branch: string,
+    options: ListOptions = {}
+  ): Promise<{ success: boolean; result?: PushEvent[]; error?: string }> {
+    try {
+      const args = [relayUrl, '-p', branch];
+
+      if (options.repo) args.push('-r', options.repo);
+      if (options.debug) args.push('-d');
+      if (options.jsonOutput) args.push('-j');
+      if (options.silent) args.push('-s');
+
+      const result = await this.executeCommand('list', args);
+
+      if (options.jsonOutput) {
+        try {
+          const jsonResponse = JSON.parse(result.stdout) as PushEvent[];
+          return { success: true, result: jsonResponse };
+        } catch (parseError) {
+          return {
+            success: false,
+            error: `Failed to parse JSON response: ${parseError}`
+          };
+        }
+      }
+
+      return { success: true, result: undefined };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get or set configuration values
+   * @param options Configuration options
+   * @returns A promise that resolves with the configuration result
+   */
+  async config(options: ConfigOptions): Promise<{ success: boolean; result?: ConfigItem[] | string; error?: string }> {
+    try {
+      const args: string[] = [];
+
+      if (options.list) {
+        args.push('--list');
+      } else if (options.key && options.value) {
+        args.push(options.key, options.value);
+      } else if (options.key) {
+        args.push(options.key);
+      }
+
+      if (options.global) args.push('--global');
+
+      const result = await this.executeCommand('config', args);
+
+      if (options.list) {
+        // Parse config list output
+        const lines = result.stdout.split('\n').filter(line => line.trim());
+        const configItems: ConfigItem[] = lines.map(line => {
+          const [key, ...valueParts] = line.split('=');
+          return {
+            key: key.trim(),
+            value: valueParts.join('=').trim(),
+            scope: options.global ? 'global' : 'local'
+          };
+        });
+        return { success: true, result: configItems };
+      } else if (options.key && !options.value) {
+        // Getting a single value
+        return { success: true, result: result.stdout.trim() };
+      } else {
+        // Setting a value
+        return { success: true, result: undefined };
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 }

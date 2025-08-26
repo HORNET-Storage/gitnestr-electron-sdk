@@ -147,3 +147,84 @@ export interface LeafRange {
   from: number;
   to: number;
 }
+
+// Pull Request Types
+export interface PullRequestOptions {
+  title?: string;
+  description?: string;
+  jsonOutput?: boolean;
+  noEvent?: boolean;
+  privateKey?: string;
+  keyAlias?: string;
+  silent?: boolean;
+}
+
+export interface PullRequestResponse {
+  bundleHash: string;
+  title: string;
+  description: string;
+  sourceBranch: string;
+  targetBranch: string;
+  eventSent: boolean;
+  eventId?: string;
+}
+
+export interface PullRequestListItem {
+  id: string;
+  title: string;
+  description?: string;
+  sourceBranch: string;
+  targetBranch: string;
+  author: string;
+  status: 'open' | 'closed' | 'merged';
+  createdAt: string;
+  bundleHash: string;
+}
+
+// List Command Types
+export interface ListOptions {
+  repo?: string;
+  pushEvents?: string;
+  pr?: boolean;
+  debug?: boolean;
+  jsonOutput?: boolean;
+  silent?: boolean;
+}
+
+export interface RepositoryListItem {
+  id: string;
+  name: string;
+  author: string;
+  description?: string;
+  branches: string[];
+  latestCommit?: {
+    hash: string;
+    message: string;
+    author: string;
+    date: string;
+  };
+}
+
+export interface PushEvent {
+  id: string;
+  repository: string;
+  branch: string;
+  bundleHash: string;
+  author: string;
+  timestamp: string;
+  commitCount: number;
+}
+
+// Config Types
+export interface ConfigOptions {
+  key?: string;
+  value?: string;
+  global?: boolean;
+  list?: boolean;
+}
+
+export interface ConfigItem {
+  key: string;
+  value: string;
+  scope: 'local' | 'global';
+}
