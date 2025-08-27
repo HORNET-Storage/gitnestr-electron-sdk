@@ -209,7 +209,7 @@ export class GitnestrBridge extends EventEmitter {
    * @returns A promise that resolves with the clone result
    */
   async clone(
-    url: string, 
+    url: string,
     options: {
       destPath?: string;
       branch?: string;
@@ -273,7 +273,7 @@ export class GitnestrBridge extends EventEmitter {
    * @returns A promise that resolves with the command result
    */
   async pull(
-    repoPath: string, 
+    repoPath: string,
     options: {
       branch?: string;
       privateKey?: string;
@@ -316,7 +316,7 @@ export class GitnestrBridge extends EventEmitter {
    * @returns A promise that resolves with the command result
    */
   async push(
-    repoPath: string, 
+    repoPath: string,
     options: {
       privateKey?: string;
       keyAlias?: string;
@@ -374,10 +374,45 @@ export class GitnestrBridge extends EventEmitter {
 
   /**
    * Fetch changes from a gitnestr repository without merging
+   * @param repoPath The path to the repository
+   * @param options Fetch options
+   * @returns A promise that resolves with the command result
    */
-  async fetch(repoPath: string, branch?: string): Promise<GitnestrCommandResult> {
-    const args: string[] = branch ? [branch] : [];
-    return this.executeCommand('fetch', args, { cwd: repoPath });
+  async fetch(
+    repoPath: string,
+    options: {
+      branch?: string;
+      privateKey?: string;
+      silent?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+    try {
+      const args: string[] = [];
+
+      if (options.branch) {
+        args.push(options.branch);
+      }
+
+      if (options.privateKey) {
+        args.push('-p', options.privateKey);
+      }
+
+      if (options.silent !== false) {
+        args.push('-s');
+      }
+
+      const result = await this.executeCommand('fetch', args, { cwd: repoPath });
+      return {
+        success: true,
+        result
+      };
+    } catch (error: any) {
+      console.error('Fetch error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 
   /**
@@ -510,8 +545,8 @@ export class GitnestrBridge extends EventEmitter {
    * @returns A promise that resolves with the command result
    */
   async commit(
-    repoPath: string, 
-    message: string, 
+    repoPath: string,
+    message: string,
     options: {
       branch?: string;
       keepBranch?: boolean;
