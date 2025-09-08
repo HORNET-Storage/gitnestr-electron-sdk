@@ -746,9 +746,10 @@ export class GitnestrBridge extends EventEmitter {
       if (options.description) args.push('-d', options.description);
       if (options.privateKey) args.push('-p', options.privateKey);
       if (options.keyAlias) args.push('-a', options.keyAlias);
-      if (options.jsonOutput) args.push('-j');
       if (options.noEvent) args.push('--no-event');
-      if (options.silent) args.push('-s');
+
+      args.push("-j")
+      args.push("--silent")
 
       const result = await this.executeCommand('pr', ['request', ...args], { cwd: repoPath });
 
@@ -883,15 +884,16 @@ export class GitnestrBridge extends EventEmitter {
    */
   async reviewPullRequest(
     repoPath: string,
-    pullRequestId: string,
-    options: { privateKey?: string; keyAlias?: string; silent?: boolean } = {}
+    pullRequestEventId: string,
+    options: { privateKey?: string; keyAlias?: string } = {}
   ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
     try {
-      const args = [pullRequestId];
+      const args = ['--event-id', pullRequestEventId];
 
       if (options.privateKey) args.push('-p', options.privateKey);
       if (options.keyAlias) args.push('-a', options.keyAlias);
-      if (options.silent) args.push('-s');
+
+      args.push("--silent")
 
       const result = await this.executeCommand('pr', ['review', ...args], { cwd: repoPath });
       return { success: true, result };
