@@ -1,10 +1,11 @@
-import { 
-  FileChunk, 
-  GitRepository, 
-  GitBridgeError, 
-  GitErrorCode, 
+import {
+  FileChunk,
+  GitRepository,
+  GitBridgeError,
+  GitErrorCode,
   BrowserGitBridgeOptions,
   TransferManifest,
+  TransferComplete,
   FileTransfer,
   RepositoryId
 } from './types';
@@ -13,7 +14,7 @@ import * as git from 'isomorphic-git';
 
 const DEFAULT_OPTIONS: Required<BrowserGitBridgeOptions> = {
   fsName: 'gitnestr',
-  maxRepoSize: 1024 * 1024 * 1024, // 1GB
+   maxRepoSize: 1024 * 1024 * 1024, // 1GB
   chunkSize: 1024 * 1024, // 1MB
   cacheSize: 100 * 1024 * 1024, // 100MB
   persistCache: true
@@ -24,7 +25,10 @@ export class BrowserGitBridge {
   private options: Required<BrowserGitBridgeOptions>;
   private currentTransfers: Map<string, Map<string, FileTransfer>> = new Map();
   private transferManifests: Map<string, TransferManifest> = new Map();
-  
+  private pendingWrites: Map<string, Promise<void>[]> = new Map();
+  private transferCompleteResolvers: Map<string, () => void> = new Map();
+  private transferCompletePromises: Map<string, Promise<void>> = new Map();
+
   constructor(options: BrowserGitBridgeOptions = {}) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
     // Initialize LightningFS with default options
@@ -58,16 +62,16 @@ export class BrowserGitBridge {
    */
   private normalizeRepoPath(filePath: string, repoId: RepositoryId): string {
     const repoBase = this.getRepoPath(repoId);
-    
+
     // Remove any leading slash from the file path
     let normalizedPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
-    
+
     // Ensure proper path separators
     normalizedPath = normalizedPath.replace(/\\/g, '/');
-    
+
     // Remove any double slashes
     normalizedPath = normalizedPath.replace(/\/+/g, '/');
-    
+
     // Combine repo base with file path
     return `${repoBase}/${normalizedPath}`;
   }
@@ -78,14 +82,21 @@ export class BrowserGitBridge {
   async initializeRepo(repoId: RepositoryId): Promise<void> {
     try {
       const repoPath = this.getRepoPath(repoId);
-      
+
       // Create repository directory
       await this.ensureDir(repoPath);
-      
+
       // Initialize transfer tracking for this repository
       const repoKey = this.getRepoKey(repoId);
       this.currentTransfers.set(repoKey, new Map());
-      
+      this.pendingWrites.set(repoKey, []);
+
+      // Create a completion promise for this transfer
+      const completePromise = new Promise<void>((resolve) => {
+        this.transferCompleteResolvers.set(repoKey, resolve);
+      });
+      this.transferCompletePromises.set(repoKey, completePromise);
+
       console.log(`Repository initialized at ${repoPath}`);
     } catch (error) {
       console.error('Failed to initialize repository:', error);
@@ -103,9 +114,61 @@ export class BrowserGitBridge {
   setTransferManifest(manifest: TransferManifest, repoId: RepositoryId): void {
     const repoKey = this.getRepoKey(repoId);
     this.transferManifests.set(repoKey, manifest);
-    
+
     // Clear existing transfers for this repository
     this.currentTransfers.set(repoKey, new Map());
+  }
+
+  /**
+   * Wait for all pending writes to complete
+   */
+  async waitForPendingWrites(repoId: RepositoryId): Promise<void> {
+    const repoKey = this.getRepoKey(repoId);
+    const writes = this.pendingWrites.get(repoKey) || [];
+
+    if (writes.length > 0) {
+      console.log(`Waiting for ${writes.length} pending writes to complete...`);
+      await Promise.all(writes);
+      console.log('All pending writes completed');
+    }
+  }
+
+  /**
+   * Mark transfer as complete for a specific repository
+   */
+  async markTransferComplete(repoId: RepositoryId): Promise<void> {
+    const repoKey = this.getRepoKey(repoId);
+
+    // Wait for all pending writes to complete
+    await this.waitForPendingWrites(repoId);
+
+    console.log(`Transfer marked complete for repository ${repoKey}`);
+
+    // Resolve the completion promise
+    const resolver = this.transferCompleteResolvers.get(repoKey);
+    if (resolver) {
+      resolver();
+    }
+  }
+
+  /**
+   * Wait for transfer to complete
+   */
+  async waitForTransferComplete(repoId: RepositoryId): Promise<void> {
+    const repoKey = this.getRepoKey(repoId);
+    const promise = this.transferCompletePromises.get(repoKey);
+    if (promise) {
+      await promise;
+    }
+  }
+
+  /**
+   * Handle transfer completion signal
+   */
+  handleTransferComplete(completion: TransferComplete, repoId: RepositoryId): void {
+    if (completion.complete) {
+      this.markTransferComplete(repoId);
+    }
   }
 
   /**
@@ -115,9 +178,9 @@ export class BrowserGitBridge {
     const repoKey = this.getRepoKey(repoId);
     const manifest = this.transferManifests.get(repoKey);
     const transfers = this.currentTransfers.get(repoKey);
-    
+
     if (!manifest || !transfers) return false;
-    
+
     // Check if we've received all expected files
     for (const filePath of manifest.files) {
       const transfer = transfers.get(filePath);
@@ -125,7 +188,7 @@ export class BrowserGitBridge {
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -135,17 +198,20 @@ export class BrowserGitBridge {
   async verifyTransfer(repoId: RepositoryId): Promise<{ success: boolean; errors: string[] }> {
     const repoKey = this.getRepoKey(repoId);
     const manifest = this.transferManifests.get(repoKey);
-    
+
     if (!manifest) {
       return { success: false, errors: ['No transfer manifest available'] };
     }
+
+    // Wait for all pending writes to complete before verification
+    await this.waitForPendingWrites(repoId);
 
     if (!this.isTransferComplete(repoId)) {
       return { success: false, errors: ['Transfer is not complete'] };
     }
 
     const errors: string[] = [];
-    
+
     for (const filePath of manifest.files) {
       try {
         const normalizedPath = this.normalizeRepoPath(filePath, repoId);
@@ -203,12 +269,12 @@ export class BrowserGitBridge {
     try {
       const repoKey = this.getRepoKey(repoId);
       let transfers = this.currentTransfers.get(repoKey);
-      
+
       if (!transfers) {
         transfers = new Map();
         this.currentTransfers.set(repoKey, transfers);
       }
-      
+
       const existingTransfer = transfers.get(chunk.path);
       const transfer: FileTransfer = existingTransfer || {
         chunks: new Map(),
@@ -226,8 +292,22 @@ export class BrowserGitBridge {
 
       // Check if we have all chunks for this file
       if (transfer.receivedChunks === transfer.totalChunks) {
-        await this.writeFile(chunk.path, transfer.chunks, repoId);
-        transfer.isComplete = true;
+        // Track the write operation as a promise
+        const repoKey = this.getRepoKey(repoId);
+        const pendingWrites = this.pendingWrites.get(repoKey) || [];
+
+        const writePromise = this.writeFile(chunk.path, transfer.chunks, repoId)
+          .then(() => {
+            transfer.isComplete = true;
+            console.log(`File ${chunk.path} write completed`);
+          })
+          .catch((error) => {
+            console.error(`Error writing file ${chunk.path}:`, error);
+            throw error;
+          });
+
+        pendingWrites.push(writePromise);
+        this.pendingWrites.set(repoKey, pendingWrites);
       }
     } catch (error) {
       console.error('Error in receiveChunk:', {
@@ -263,7 +343,7 @@ export class BrowserGitBridge {
 
       const totalLength = sortedChunks.reduce((sum, chunk) => sum + chunk.length, 0);
       const fileData = new Uint8Array(totalLength);
-      
+
       let offset = 0;
       for (const chunk of sortedChunks) {
         fileData.set(chunk, offset);
@@ -293,7 +373,7 @@ export class BrowserGitBridge {
   async getRepository(repoId: RepositoryId): Promise<GitRepository> {
     try {
       const repoPath = this.getRepoPath(repoId);
-      
+
       // Check if repository exists
       try {
         await this.fs.promises.stat(repoPath);
@@ -304,7 +384,7 @@ export class BrowserGitBridge {
           { repoId }
         );
       }
-      
+
       const [branches, remotes, head] = await Promise.all([
         this.getBranches(repoId),
         this.getRemotes(repoId),
@@ -322,7 +402,7 @@ export class BrowserGitBridge {
       };
     } catch (error) {
       if (error instanceof GitBridgeError) throw error;
-      
+
       throw new GitBridgeError(
         'Failed to get repository information',
         GitErrorCode.INTERNAL_ERROR,
@@ -386,7 +466,7 @@ export class BrowserGitBridge {
     try {
       let size = 0;
       const files = await this.fs.promises.readdir(dirPath);
-      
+
       for (const file of files) {
         const filePath = dirPath === '/' ? `/${file}` : `${dirPath}/${file}`;
         const stats = await this.fs.promises.stat(filePath);
@@ -396,7 +476,7 @@ export class BrowserGitBridge {
           size += stats.size;
         }
       }
-      
+
       return size;
     } catch (error) {
       console.error('Error getting repository size:', error);
@@ -411,7 +491,7 @@ export class BrowserGitBridge {
     try {
       const repositories: RepositoryId[] = [];
       const entries = await this.fs.promises.readdir('/');
-      
+
       for (const entry of entries) {
         // Check if entry matches the pattern "ownerPubkey:repoName"
         const match = entry.match(/^([^:]+):(.+)$/);
@@ -422,7 +502,7 @@ export class BrowserGitBridge {
           });
         }
       }
-      
+
       return repositories;
     } catch (error) {
       console.error('Error listing repositories:', error);
@@ -450,14 +530,17 @@ export class BrowserGitBridge {
     try {
       const repoPath = this.getRepoPath(repoId);
       const repoKey = this.getRepoKey(repoId);
-      
+
       // Remove from tracking
       this.currentTransfers.delete(repoKey);
       this.transferManifests.delete(repoKey);
-      
+      this.pendingWrites.delete(repoKey);
+      this.transferCompleteResolvers.delete(repoKey);
+      this.transferCompletePromises.delete(repoKey);
+
       // Delete directory recursively
       await this.deleteDirectory(repoPath);
-      
+
       console.log(`Repository deleted: ${repoPath}`);
     } catch (error) {
       throw new GitBridgeError(
@@ -474,18 +557,18 @@ export class BrowserGitBridge {
   private async deleteDirectory(dirPath: string): Promise<void> {
     try {
       const entries = await this.fs.promises.readdir(dirPath);
-      
+
       for (const entry of entries) {
         const entryPath = `${dirPath}/${entry}`;
         const stats = await this.fs.promises.stat(entryPath);
-        
+
         if (stats.type === 'dir') {
           await this.deleteDirectory(entryPath);
         } else {
           await this.fs.promises.unlink(entryPath);
         }
       }
-      
+
       await this.fs.promises.rmdir(dirPath);
     } catch (error) {
       console.error('Error deleting directory:', error);
@@ -503,11 +586,14 @@ export class BrowserGitBridge {
       for (const repoId of repositories) {
         await this.deleteRepository(repoId);
       }
-      
+
       // Clear all tracking
       this.currentTransfers.clear();
       this.transferManifests.clear();
-      
+      this.pendingWrites.clear();
+      this.transferCompleteResolvers.clear();
+      this.transferCompletePromises.clear();
+
       console.log('All repositories cleared');
     } catch (error) {
       console.error('Error initializing:', error);

@@ -8,7 +8,8 @@ import {
   GitBridgeError,
   GitErrorCode,
   GitBridgeOptions,
-  TransferManifest
+  TransferManifest,
+  TransferComplete
 } from './types';
 
 const DEFAULT_OPTIONS: Required<GitBridgeOptions> = {
@@ -162,7 +163,7 @@ export class GitBridge {
     return results;
   }
 
-  async *streamRepository(): AsyncGenerator<FileChunk | { manifest: TransferManifest }, void, unknown> {
+  async *streamRepository(): AsyncGenerator<FileChunk | { manifest: TransferManifest } | TransferComplete, void, unknown> {
     const validation = await this.validateRepo();
     if (!validation.isValid) {
       throw new GitBridgeError(
@@ -174,7 +175,7 @@ export class GitBridge {
 
     try {
       const files = await this.listFiles();
-      
+
       // First yield the manifest with relative paths
       yield {
         manifest: {
@@ -214,6 +215,8 @@ export class GitBridge {
           await fileHandle.close();
         }
       }
+
+      yield { complete: true };
     } catch (error) {
       throw new GitBridgeError(
         'Failed to stream repository',
@@ -243,7 +246,7 @@ export class GitBridge {
   private async listFiles(): Promise<string[]> {
     const results: string[] = [];
     await this.listFilesRecursive(this.repoPath, '', results);
-    return results.filter(file => 
+    return results.filter(file =>
       !this.options.excludePatterns.some(pattern => this.matchGlobPattern(file, pattern))
     );
   }
@@ -254,7 +257,7 @@ export class GitBridge {
 
     for (const entry of entries) {
       const entryRelativePath = path.join(relativePath, entry.name);
-      
+
       if (entry.isDirectory()) {
         if (entry.name !== 'node_modules') {
           await this.listFilesRecursive(basePath, entryRelativePath, results);

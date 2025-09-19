@@ -13,6 +13,10 @@ export interface FileChunk {
   data: Uint8Array;
 }
 
+export interface TransferComplete {
+  complete: boolean;
+}
+
 export interface TransferManifest {
   totalFiles: number;
   files: string[];

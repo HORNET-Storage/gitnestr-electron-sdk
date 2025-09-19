@@ -35,7 +35,9 @@
     "build:example": "tsc -p example/tsconfig.json",
     "build": "npm run build:electron-git && npm run build:browser-git && npm run build:electron-gitnestr && npm run build:browser-gitnestr && npm run build:example",
     "test": "turbo run test",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "dev": "npm run build && electron example/dist/main.js",
+    "start": "electron example/dist/main.js"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
