@@ -189,27 +189,37 @@ export class GitBridge {
         const filePath = path.join(this.repoPath, file);
         const fileHandle = await fs.open(filePath, 'r');
         const stats = await fileHandle.stat();
-        const totalChunks = Math.ceil(stats.size / this.options.chunkSize);
+
+        const totalChunks = stats.size === 0 ? 1 : Math.ceil(stats.size / this.options.chunkSize);
         let chunkIndex = 0;
 
         try {
-          while (true) {
-            const buffer = Buffer.alloc(this.options.chunkSize);
-            const { bytesRead } = await fileHandle.read(
-              buffer,
-              0,
-              buffer.length,
-              chunkIndex * this.options.chunkSize
-            );
-
-            if (bytesRead === 0) break;
-
+          if (stats.size === 0) {
             yield {
-              index: chunkIndex++,
-              totalChunks,
-              data: buffer.slice(0, bytesRead),
+              index: 0,
+              totalChunks: 1,
+              data: Buffer.alloc(0),
               path: this.makeRelativePath(file)
             };
+          } else {
+            while (true) {
+              const buffer = Buffer.alloc(this.options.chunkSize);
+              const { bytesRead } = await fileHandle.read(
+                buffer,
+                0,
+                buffer.length,
+                chunkIndex * this.options.chunkSize
+              );
+
+              if (bytesRead === 0) break;
+
+              yield {
+                index: chunkIndex++,
+                totalChunks,
+                data: buffer.slice(0, bytesRead),
+                path: this.makeRelativePath(file)
+              };
+            }
           }
         } finally {
           await fileHandle.close();

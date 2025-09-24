@@ -28,6 +28,7 @@ export class BrowserGitBridge {
   private pendingWrites: Map<string, Promise<void>[]> = new Map();
   private transferCompleteResolvers: Map<string, () => void> = new Map();
   private transferCompletePromises: Map<string, Promise<void>> = new Map();
+  private transferCompleted: Set<string> = new Set();
 
   constructor(options: BrowserGitBridgeOptions = {}) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
@@ -142,6 +143,8 @@ export class BrowserGitBridge {
     // Wait for all pending writes to complete
     await this.waitForPendingWrites(repoId);
 
+    this.transferCompleted.add(repoKey);
+
     console.log(`Transfer marked complete for repository ${repoKey}`);
 
     // Resolve the completion promise
@@ -176,20 +179,8 @@ export class BrowserGitBridge {
    */
   isTransferComplete(repoId: RepositoryId): boolean {
     const repoKey = this.getRepoKey(repoId);
-    const manifest = this.transferManifests.get(repoKey);
-    const transfers = this.currentTransfers.get(repoKey);
 
-    if (!manifest || !transfers) return false;
-
-    // Check if we've received all expected files
-    for (const filePath of manifest.files) {
-      const transfer = transfers.get(filePath);
-      if (!transfer || !transfer.isComplete) {
-        return false;
-      }
-    }
-
-    return true;
+    return this.transferCompleted.has(repoKey);
   }
 
   /**
@@ -290,7 +281,6 @@ export class BrowserGitBridge {
       transfer.chunks.set(chunk.index, chunk.data);
       transfer.receivedChunks++;
 
-      // Check if we have all chunks for this file
       if (transfer.receivedChunks === transfer.totalChunks) {
         // Track the write operation as a promise
         const repoKey = this.getRepoKey(repoId);
@@ -342,16 +332,21 @@ export class BrowserGitBridge {
         .map(([_, data]) => data);
 
       const totalLength = sortedChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-      const fileData = new Uint8Array(totalLength);
 
-      let offset = 0;
-      for (const chunk of sortedChunks) {
-        fileData.set(chunk, offset);
-        offset += chunk.length;
+      if (totalLength === 0) {
+        await this.fs.promises.writeFile(normalizedPath, new Uint8Array(0));
+      } else {
+        const fileData = new Uint8Array(totalLength);
+
+        let offset = 0;
+        for (const chunk of sortedChunks) {
+          fileData.set(chunk, offset);
+          offset += chunk.length;
+        }
+
+        // Write the complete file
+        await this.fs.promises.writeFile(normalizedPath, fileData);
       }
-
-      // Write the complete file
-      await this.fs.promises.writeFile(normalizedPath, fileData);
       console.log('File written successfully:', normalizedPath);
     } catch (error) {
       console.error('Error writing file:', {
@@ -537,6 +532,7 @@ export class BrowserGitBridge {
       this.pendingWrites.delete(repoKey);
       this.transferCompleteResolvers.delete(repoKey);
       this.transferCompletePromises.delete(repoKey);
+      this.transferCompleted.delete(repoKey);
 
       // Delete directory recursively
       await this.deleteDirectory(repoPath);
@@ -593,6 +589,7 @@ export class BrowserGitBridge {
       this.pendingWrites.clear();
       this.transferCompleteResolvers.clear();
       this.transferCompletePromises.clear();
+      this.transferCompleted.clear();
 
       console.log('All repositories cleared');
     } catch (error) {
