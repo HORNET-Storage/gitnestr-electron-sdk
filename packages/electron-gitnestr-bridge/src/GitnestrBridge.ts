@@ -623,8 +623,7 @@ export class GitnestrBridge extends EventEmitter {
     pubKey: string,
     rootHash: string,
     options?: {
-      fromLeaf?: number,
-      toLeaf?: number,
+      leafHashes?: string[],
       outputDir?: string,
       withContent?: boolean,
       jsonOutput?: boolean,
@@ -633,8 +632,12 @@ export class GitnestrBridge extends EventEmitter {
   ): Promise<{ success: boolean; result?: DagJsonOutput; error?: string }> {
     const args = [address, port, pubKey, rootHash];
 
-    if (options?.fromLeaf) args.push('--from', options.fromLeaf.toString());
-    if (options?.toLeaf) args.push('--to', options.toLeaf.toString());
+    if (options?.leafHashes && options.leafHashes.length > 0) {
+      // Add each leaf hash with --leaf flag
+      for (const hash of options.leafHashes) {
+        args.push('--leaf', hash);
+      }
+    }
     if (options?.outputDir) args.push('--output', options.outputDir);
     if (options?.withContent === false) args.push('--content=false');
     if (options?.jsonOutput) args.push('--json');

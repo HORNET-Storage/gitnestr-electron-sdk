@@ -100,7 +100,6 @@ export interface FileDetails {
   type: string;
   size?: number;
   content_base64?: string;
-  leaf_range: LeafRange;
 }
 
 export interface ArchiveJsonOutput {
@@ -127,7 +126,6 @@ export interface ArchiveFileInfo {
   hash: string;
   type: string;
   size?: number;
-  leaf_range: LeafRange;
   last_modified_hash?: string;
   last_modified_author?: string;
   last_modified_date?: string;
@@ -141,11 +139,6 @@ export interface TagInfo {
   message?: string;
   author?: string;
   date?: string;
-}
-
-export interface LeafRange {
-  from: number;
-  to: number;
 }
 
 // Pull Request Types
