@@ -13,3 +13,8 @@ export {
   GitnestrBridgeOptions,
   RepositoryInfo
 } from './types/index.js';
+export {
+  findGitnestrPath,
+  findGitnestrPathSync,
+  clearGitnestrCache
+} from './utils/findGitnestr.js';

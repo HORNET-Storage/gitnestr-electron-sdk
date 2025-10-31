@@ -25,9 +25,10 @@ import {
   ConfigItem
 } from './types/index.js';
 import { error } from 'console';
+import { findGitnestrPath, findGitnestrPathSync } from './utils/findGitnestr.js';
 
 const DEFAULT_OPTIONS: Required<GitnestrBridgeOptions> = {
-  gitnestrPath: 'gitnestr.exe',
+  gitnestrPath: process.platform === 'win32' ? 'gitnestr.exe' : 'gitnestr',
   timeout: 60000,
   env: {},
   relays: []
@@ -36,10 +37,36 @@ const DEFAULT_OPTIONS: Required<GitnestrBridgeOptions> = {
 export class GitnestrBridge extends EventEmitter {
   private options: Required<GitnestrBridgeOptions>;
   private activeProcesses: Map<string, ReturnType<typeof execa>> = new Map();
+  private gitnestrPathResolved: boolean = false;
 
   constructor(options: GitnestrBridgeOptions = {}) {
     super();
     this.options = { ...DEFAULT_OPTIONS, ...options };
+
+    // If no custom path was provided, resolve it asynchronously
+    if (!options.gitnestrPath) {
+      this.resolveGitnestrPath();
+    }
+  }
+
+  /**
+   * Resolve the gitnestr path asynchronously
+   * Checks system PATH first, then falls back to local binary
+   */
+  private async resolveGitnestrPath(): Promise<void> {
+    if (this.gitnestrPathResolved) {
+      return;
+    }
+
+    try {
+      const resolvedPath = await findGitnestrPath();
+      this.options.gitnestrPath = resolvedPath;
+      this.gitnestrPathResolved = true;
+      console.log(`[GitnestrBridge] Using gitnestr at: ${resolvedPath}`);
+    } catch (error) {
+      console.warn('[GitnestrBridge] Failed to resolve gitnestr path:', error);
+      // Keep the default path
+    }
   }
 
   /**
@@ -50,6 +77,9 @@ export class GitnestrBridge extends EventEmitter {
     args: string[] = [],
     options: GitnestrCommandOptions = {}
   ): Promise<GitnestrCommandResult> {
+    // Ensure gitnestr path is resolved before executing commands
+    await this.resolveGitnestrPath();
+
     const commandId = `${command}-${Date.now()}`;
     const commandOptions = {
       cwd: options.cwd || process.cwd(),
