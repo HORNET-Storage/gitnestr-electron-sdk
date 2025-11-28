@@ -297,6 +297,46 @@ export class GitnestrBridge extends EventEmitter {
   }
 
   /**
+   * Checkout a branch in a gitnestr repository
+   * @param repoPath The path to the repository
+   * @param branch The branch to checkout
+   * @param options Checkout options
+   * @returns A promise that resolves with the command result
+   */
+  async checkout(
+    repoPath: string,
+    branch: string,
+    options: {
+      create?: boolean;
+      silent?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; result?: GitnestrCommandResult; error?: string }> {
+    try {
+      const args: string[] = [branch];
+
+      if (options.create) {
+        args.unshift('-b');
+      }
+
+      if (options.silent !== false) {
+        args.push('-s');
+      }
+
+      const result = await this.executeCommand('checkout', args, { cwd: repoPath });
+      return {
+        success: true,
+        result
+      };
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
    * Pull changes from a gitnestr repository
    * @param repoPath The path to the repository
    * @param options Pull options
